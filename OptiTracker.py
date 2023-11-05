@@ -1,4 +1,4 @@
-from NatNetClient import NatNetClient
+from Resources.API.Official.PythonClient import NatNetClient
 
 
 class OptiTracker:
@@ -14,13 +14,14 @@ class OptiTracker:
             uses_skeleton_listener=False,
             uses_rigid_body_listener=False,
             uses_marker_set_listener=False,
+            uses_data_description_listener=True,
             uses_frame_listener=True) -> object:
         
         # Spawn client
         client = NatNetClient(
-            server=server, multicast=multicast,
-            commandPort=commandPort, dataPort=dataPort,
-            motiveVersion=motiveVersion, verbose=verbose
+            # server=server, multicast=multicast,
+            # commandPort=commandPort, dataPort=dataPort,
+            # motiveVersion=motiveVersion, verbose=verbose
         )
 
         # Activate requested listeners by assinging them to client
@@ -35,7 +36,10 @@ class OptiTracker:
             client.markerSetListener = self.marker_set_listener
 
         if uses_frame_listener:
-            client.newFrameListener = self.frame_listener
+            client.new_frame_listener = self.frame_listener
+
+        if uses_data_description_listener:
+            client.data_description_listener = self.data_description_listener
 
         # Activate client
         # TODO: How best to inform user if client setup fails?
@@ -52,6 +56,9 @@ class OptiTracker:
     # Activated by default, called once per frame-rate
     def frame_listener(self) -> None:
         pass
+
+    def data_description_listener(self, data_descs):
+        
 
     # When active, records frame-data of all active skeleton assets
     # Deactivated by default, called once per frame-rate

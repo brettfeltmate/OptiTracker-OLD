@@ -13,31 +13,40 @@ FloatValue = struct.Struct( '<f' )
 DoubleValue = struct.Struct( '<d' )
 
 class NatNetClient:
-    def __init__( self, server="127.0.0.1", multicast="239.255.42.99", commandPort=1510, dataPort=1511, rigidBodyListener=None, newFrameListener=None, rigidBodyListListener=None, markerSetListener=None, verbose=False, version=(3,0,0,0) ):
+    def __init__(self, 
+            server_address="127.0.0.1", multicast_address="239.255.42.99", 
+            command_port=1510, data_port=1511, 
+            version=(3,0,3,0), verbose=False,
+            skeleton_listener=None,
+            rigid_body_listener=None, 
+            marker_set_listener=None,
+            frame_listener=None) -> None:
+        
         # IP address of the NatNet server.
-        self.serverIPAddress = server
+        self.server_IP_address = server_address
 
         # This should match the multicast address listed in Motive's streaming settings.
-        self.multicastAddress = multicast
+        self.multicast_address = multicast_address
 
         # NatNet Command channel
-        self.commandPort = commandPort
+        self.command_port = command_port
         
         # NatNet Data channel
-        self.dataPort = dataPort
+        self.data_port = data_port
 
         # Set this to a callback method of your choice to receive per-rigid-body data at each frame.
-        self.rigidBodyListener = rigidBodyListener
+        self.rigid_body_listener = rigid_body_listener
 
         # Set this to a callback method of your choice to receive data at each frame.
-        self.newFrameListener = newFrameListener
+        self.frame_listener = frame_listener
+        
+        # Set this to a callback method of your choice to receive markerset data at each frame
+        self.markerSetListener = markerSetListener
         
         # Set this to a callback method of your choice to receive rigid-body data list and timestamp at each frame.
         self.rigidBodyListListener = rigidBodyListListener
         self.rigidBodyList = []
 
-        # Set this to a callback method of your choice to receive markerset data at each frame
-        self.markerSetListener = markerSetListener
 
         # NatNet stream version. This will be updated to the actual version the server is using during initialization.
         self.__natNetStreamVersion = version
@@ -73,7 +82,7 @@ class NatNetClient:
         result.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         result.bind( ('', port) )
 
-        mreq = struct.pack("4sl", socket.inet_aton(self.multicastAddress), socket.INADDR_ANY)
+        mreq = struct.pack("4sl", socket.inet_aton(self.multicast_address), socket.INADDR_ANY)
         result.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
         return result
 
@@ -104,8 +113,8 @@ class NatNetClient:
         self.__trace( "\tOrientation:", rot[0],",", rot[1],",", rot[2],",", rot[3] )
 
         # Send information to any listener.
-        if self.rigidBodyListener is not None:
-            self.rigidBodyListener( id, pos, rot )
+        if self.rigid_body_listener is not None:
+            self.rigid_body_listener( id, pos, rot )
 
         # RB Marker Data ( Before version 3.0.  After Version 3.0 Marker data is in description )
         if( self.__natNetStreamVersion[0] < 3 ) :
@@ -347,8 +356,8 @@ class NatNetClient:
         offset += 2
 
         # Send information to any listener.
-        if self.newFrameListener is not None:
-            self.newFrameListener( frameNumber, markerSetCount, unlabeledMarkersCount, rigidBodyCount, skeletonCount,
+        if self.frame_listener is not None:
+            self.frame_listener( frameNumber, markerSetCount, unlabeledMarkersCount, rigidBodyCount, skeletonCount,
                                   labeledMarkerCount, timecode, timecodeSub, timestamp, isRecording, trackedModelsChanged )
 
         # Send rigid body list and timestamp
@@ -506,7 +515,7 @@ class NatNetClient:
         self.running = True
 
         # Create the data socket
-        self.dataSocket = self.__createDataSocket( self.dataPort )
+        self.dataSocket = self.__createDataSocket( self.data_port )
         if( self.dataSocket is None ):
             print( "Could not open data channel" )
             exit
@@ -525,7 +534,7 @@ class NatNetClient:
         commandThread = Thread( target = self.__dataThreadFunction, args = (self.commandSocket, ))
         commandThread.start()
 
-        self.sendCommand( self.NAT_REQUEST_MODELDEF, "", self.commandSocket, (self.serverIPAddress, self.commandPort) )
+        self.sendCommand( self.NAT_REQUEST_MODELDEF, "", self.commandSocket, (self.server_IP_address, self.command_port) )
 
     def stop( self ):
         self.running = False

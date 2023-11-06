@@ -58,7 +58,7 @@ class NatNetClient:
     # print_level = 0 off
     # print_level = 1 on
     # print_level = >1 on / print every nth mocap frame
-    print_level = 20
+    print_level = 0
     
     def __init__( self ):
         # Change this value to the IP address of the NatNet server.
@@ -1115,7 +1115,6 @@ class NatNetClient:
             trace_dd("\t "+ str(offset) +" bytes processed of " + str(packet_size) )
 
         if self.full_description_listener is not None:
-            print("__unpack_data_descriptions() fetching descriptions.\n")
             desc_dict = data_descs.get_description_dict()
 
             self.full_description_listener(desc_dict)

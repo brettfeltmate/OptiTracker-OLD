@@ -32,12 +32,16 @@ class OptiTracker:
 
     def get_full_description(self, desc_dict):
         self.descriptions['full'] = desc_dict
+        self.client.full_description_listener = None
 
     def get_skeleton_descriptions(self, desc_dict):
         self.descriptions['skeletons'] = desc_dict
+        self.client.skeleton_description_listener = None
 
     def get_rigid_body_descriptions(self, desc_dict):
+        print(f"Type of desc_dict is {type(desc_dict)}")
         self.descriptions['rigid_bodies'] = desc_dict
+        self.client.rigid_body_description_listener = None
 
     def save_description(self, desc_type):
         print(f"Attempting to write {desc_type}...\n")
@@ -49,10 +53,13 @@ class OptiTracker:
                 with open(f'out\{desc_type}_desc_dict.csv', 'w') as file:
                     print("file opened")
                     w = csv.writer(file, delimiter = '\t')
-                    w.writerow([''] + self.descriptions[desc_type].keys())
+                    w.writerow([''] + list(self.descriptions[desc_type].keys()))
                     for key in self.descriptions[desc_type].keys():
+                        for value in self.descriptions[desc_type].values():
+                            if type(value):pass
+                            
                         w.writerow(
-                            [key] + [subdict.get(key, '') for subdict in self.descriptions[desc_type].values()]
+                            [key] + [subdict.get(key.encode('utf-8'), '') for subdict in self.descriptions[desc_type].values()]
                         )
             except OSError:
                 print("Failed to open file!")

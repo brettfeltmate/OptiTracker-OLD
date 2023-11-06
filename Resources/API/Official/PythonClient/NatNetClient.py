@@ -81,7 +81,12 @@ class NatNetClient:
         # Set this to a callback method of your choice to receive per-rigid-body data at each frame.
         self.rigid_body_listener = None
         self.new_frame_listener  = None
-        self.data_description_listener = None
+
+        # TODO: seeing if I can extract specific descriptions
+        self.full_description_listener = None
+        self.skeleton_description_listener = None
+        self.rigid_body_description_listener = None
+        self.rb_marker_description_listener = None
 
         # Set Application Name
         self.__application_name = "Not Set"
@@ -872,6 +877,9 @@ class NatNetClient:
 
             offset = offset3
         
+        if self.rigid_body_description_listener is not None:
+            self.rigid_body_description_listener(rb_desc.get_description_dict())
+
         trace_dd("\tunpack_rigid_body_description processed bytes: ", offset)
         return offset, rb_desc
 
@@ -903,6 +911,10 @@ class NatNetClient:
             offset_tmp, rb_desc_tmp = self.__unpack_rigid_body_description( data[offset:], major, minor )
             offset+= offset_tmp
             skeleton_desc.add_rigid_body_description(rb_desc_tmp)
+
+        if self.skeleton_description_listener is not None:
+            self.skeleton_description_listener(skeleton_desc.get_description_dict())
+            
         return offset, skeleton_desc
 
     def __unpack_force_plate_description(self, data, major, minor):
@@ -1102,10 +1114,11 @@ class NatNetClient:
             trace_dd("\t"+ str(i) +" datasets processed of " + str(dataset_count))
             trace_dd("\t "+ str(offset) +" bytes processed of " + str(packet_size) )
 
-            if self.data_description_listener is not None:
-                desc_dict = data_descs.get_description_dict()
+        if self.full_description_listener is not None:
+            print("__unpack_data_descriptions() fetching descriptions.\n")
+            desc_dict = data_descs.get_description_dict()
 
-                self.data_description_listener(desc_dict)
+            self.full_description_listener(desc_dict)
 
         return offset, data_descs
 

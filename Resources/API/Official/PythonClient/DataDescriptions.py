@@ -160,6 +160,7 @@ class RBMarker:
         self.pos=pos
 
     def get_description_dict(self):
+        print("RBMarker.get_description_dict()\n")
         desc = OrderedDict()
         desc['marker_name'] = self.marker_name
         desc['active_label'] = self.active_label
@@ -204,6 +205,7 @@ class RigidBodyDescription:
         return self.get_num_markers()
 
     def get_description_dict(self):
+        print("RigidBodyDescription.get_description_dict()\n")
         desc = OrderedDict()
         desc['sz_name'] = self.sz_name
         desc['id_num'] = self.id_num
@@ -252,6 +254,7 @@ class SkeletonDescription:
         return len(self.rigid_body_description_list)
 
     def get_description_dict(self):
+        print("Skeleton.get_discription_dict()\n")
         desc = OrderedDict()
         desc['name'] = self.name
         desc['id_num'] = self.id_num
@@ -607,6 +610,7 @@ class DataDescriptions():
         return out_string
 
     def get_description_dict(self):
+        print("DataDescriptions.get_description_dict()\n")
         # TODO: right now this only returns skeletons (and respective RBs, etc.,)
         desc_dict = OrderedDict()
         num_sks = len(self.skeleton_list)

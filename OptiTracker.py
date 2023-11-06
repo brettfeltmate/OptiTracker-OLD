@@ -2,7 +2,7 @@ import sys
 import os
 import csv
 from collections import OrderedDict
-from Resources.APIs.Official.PythonClient import NatNetClient
+from Resources.APIs.Official.PythonClient.NatNetClient import NatNetClient
 
 # TODO: is this necessary?
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

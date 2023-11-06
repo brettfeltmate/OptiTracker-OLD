@@ -19,8 +19,8 @@ import struct
 from threading import Thread
 import copy
 import time
-from Resources.API.Official.PythonClient import DataDescriptions
-from Resources.API.Official.PythonClient import MoCapData
+from Resources.APIs.Official.PythonClient import DataDescriptions
+from Resources.APIs.Official.PythonClient import MoCapData
 
 def trace( *args ):
     # uncomment the one you want to use

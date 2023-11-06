@@ -58,7 +58,7 @@ class OptiTracker:
         pass
 
     def data_description_listener(self, data_descs):
-        
+        pass
 
     # When active, records frame-data of all active skeleton assets
     # Deactivated by default, called once per frame-rate

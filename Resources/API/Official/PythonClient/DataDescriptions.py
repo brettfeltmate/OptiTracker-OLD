@@ -193,6 +193,18 @@ class RigidBodyDescription:
         self.rb_marker_list.append(copy.deepcopy(new_rb_maker))
         return self.get_num_markers()
 
+    def dump(self):
+        dump = {}
+        dump['sz_name'] = self.sz_name
+        dump['id_num'] = self.id_num
+        dump['parent_id'] = self.parent_id
+        dump['pos'] = self.pos
+        dump['markers'] = []
+
+        num_markers = len(self.rb_marker_list)
+        for i in num_markers:
+            pass
+
 
     def get_as_string(self, tab_str="  ", level=0):
         out_tab_str = get_tab_str(tab_str, level)
@@ -538,6 +550,7 @@ class DataDescriptions():
             ret_value = None
 
         return ret_value
+
 
     def get_as_string(self, tab_str="  ", level = 0):
         """Ensure data comes back as a string"""

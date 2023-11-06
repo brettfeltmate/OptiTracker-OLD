@@ -19,8 +19,8 @@ import struct
 from threading import Thread
 import copy
 import time
-import DataDescriptions
-import MoCapData
+from Resources.API.Official.PythonClient import DataDescriptions
+from Resources.API.Official.PythonClient import MoCapData
 
 def trace( *args ):
     # uncomment the one you want to use
@@ -1103,16 +1103,9 @@ class NatNetClient:
             trace_dd("\t "+ str(offset) +" bytes processed of " + str(packet_size) )
 
             if self.data_description_listener is not None:
-                sk_desc = {}
-                # note, only one skeleton
-                sk_desc['name']
-                # but, RBs will need to be recursively unpacked
-                
-                
-                desc_dict = {}
-                desc_dict['data_order']
+                desc_dict = data_descs.get_description_dict()
 
-                self.data_description_listener(data_descs)
+                self.data_description_listener(desc_dict)
 
         return offset, data_descs
 

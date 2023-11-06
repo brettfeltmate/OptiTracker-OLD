@@ -26,6 +26,8 @@ import copy
 import hashlib
 import random
 
+from collections import OrderedDict
+
 K_SKIP = [0,0,1]
 K_FAIL = [0,1,0]
 K_PASS = [1,0,0]
@@ -157,6 +159,14 @@ class RBMarker:
         self.active_label = active_label
         self.pos=pos
 
+    def get_description_dict(self):
+        desc = OrderedDict()
+        desc['marker_name'] = self.marker_name
+        desc['active_label'] = self.active_label
+        desc['pos'] = self.pos
+
+        return desc
+
     def get_as_string(self, tab_str="  ", level=0):
         out_tab_str = get_tab_str(tab_str, level)
         out_string=""
@@ -193,17 +203,19 @@ class RigidBodyDescription:
         self.rb_marker_list.append(copy.deepcopy(new_rb_maker))
         return self.get_num_markers()
 
-    def dump(self):
-        dump = {}
-        dump['sz_name'] = self.sz_name
-        dump['id_num'] = self.id_num
-        dump['parent_id'] = self.parent_id
-        dump['pos'] = self.pos
-        dump['markers'] = []
+    def get_description_dict(self):
+        desc = OrderedDict()
+        desc['sz_name'] = self.sz_name
+        desc['id_num'] = self.id_num
+        desc['parent_id'] = self.parent_id
+        desc['pos'] = self.pos
+        desc['markers'] = OrderedDict()
 
         num_markers = len(self.rb_marker_list)
-        for i in num_markers:
-            pass
+        for i in range(num_markers):
+            desc['markers'][f"rb_{i}"] = self.rb_marker_list[i].get_description_dict()
+
+        return desc
 
 
     def get_as_string(self, tab_str="  ", level=0):
@@ -238,6 +250,19 @@ class SkeletonDescription:
     def add_rigid_body_description(self,rigid_body_description):
         self.rigid_body_description_list.append(copy.deepcopy(rigid_body_description))
         return len(self.rigid_body_description_list)
+
+    def get_description_dict(self):
+        desc = OrderedDict()
+        desc['name'] = self.name
+        desc['id_num'] = self.id_num
+        desc['rigid_body_descriptions'] = OrderedDict()
+        
+        num_bones = len(self.rigid_body_description_list)
+        for i in range(num_bones):
+            desc['rigid_body_descriptions'][f"rigid_body_bone_{i}"] = \
+            self.rigid_body_description_list[i].get_description_dict()
+
+        return desc
 
     def get_as_string(self, tab_str="  ", level=0):
         out_tab_str = get_tab_str(tab_str, level)
@@ -580,6 +605,16 @@ class DataDescriptions():
             i+=1
 
         return out_string
+
+    def get_description_dict(self):
+        # TODO: right now this only returns skeletons (and respective RBs, etc.,)
+        desc_dict = OrderedDict()
+        num_sks = len(self.skeleton_list)
+        for i in range(num_sks):
+            desc_dict[f"skeleton_{i}"] = self.skeleton_list[i].get_description_dict()
+
+        return desc_dict
+
 
 # cDataDescriptions END
 

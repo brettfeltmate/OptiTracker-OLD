@@ -99,7 +99,7 @@ class NatNetClient:
         self.__is_locked = False
 
         # Server has the ability to change bitstream version
-        self.__can_change_bitstream_version = False
+        self.__can_change_bitstream_version = True
 
         self.command_thread = None
         self.data_thread = None

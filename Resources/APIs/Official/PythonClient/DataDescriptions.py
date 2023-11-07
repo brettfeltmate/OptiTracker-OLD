@@ -26,8 +26,6 @@ import copy
 import hashlib
 import random
 
-import pandas as pd
-
 from collections import OrderedDict, namedtuple
 
 rbMarker = namedtuple('rbMarker', ['active_label', 'x_pos', 'y_pos', 'z_pos'])
@@ -205,7 +203,7 @@ class RigidBodyDescription:
 
     def get_description_dict(self):
         desc = OrderedDict()
-        desc['sz_name'] = self.sz_name
+        desc['sz_name'] = self.sz_name.decode('utf-8')
         desc['id_num'] = self.id_num
         desc['parent_id'] = self.parent_id
         desc['pos'] = Pos(self.pos[0], self.pos[1], self.pos[2])

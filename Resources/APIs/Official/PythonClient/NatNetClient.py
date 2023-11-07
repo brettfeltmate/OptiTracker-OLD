@@ -36,7 +36,7 @@ def trace_dd( *args ):
 #Used for MoCap Frame Data functions
 def trace_mf( *args ):
     # uncomment the one you want to use
-    #print( "".join(map(str,args)) )
+    print( "".join(map(str,args)) )
     pass
 
 def get_message_id(data):

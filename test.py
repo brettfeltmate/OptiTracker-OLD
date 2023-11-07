@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import pprint
 
 from OptiTracker import OptiTracker
 
@@ -27,7 +28,11 @@ OptiTracker.stop_client()
 # for asset_type in ['rigid_bodies', 'skeletons', 'full']:
 #     OptiTracker.save_description(asset_type)
 
-OptiTracker.dump_to_json("rigid_bodies")
+# pprint.pprint(OptiTracker.descriptions['rigid_bodies'])
+# print(f"\n\nsz_name: {OptiTracker.descriptions['rigid_bodies']['sz_name']}")
+
+for key in OptiTracker.frame['skeleton_data'].keys():
+    pprint.pprint(vars(OptiTracker.frame['skeleton_data'][key]))
 
 
 sys.exit()

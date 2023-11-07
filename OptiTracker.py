@@ -21,6 +21,7 @@ class OptiTracker:
     def __init__(self) -> None:
         self.client = self.init_client()
         self.descriptions = OrderedDict()
+        self.frame = None
 
     # Create NatNetClient instance
     def init_client(self) -> object:
@@ -30,6 +31,7 @@ class OptiTracker:
         #client.full_description_listener = self.get_full_description
         #client.skeleton_description_listener = self.get_skeleton_descriptions
         client.rigid_body_description_listener = self.get_rigid_body_descriptions
+        client.new_frame_listener = self.get_mocap_frame
 
         return client
     
@@ -39,6 +41,9 @@ class OptiTracker:
     def stop_client(self) -> None:
         self.client.shutdown()
 
+    def get_mocap_frame(self, data_dict, mocap_data):
+        self.frame = data_dict
+    
     def get_full_description(self, desc_dict) -> None:
         self.descriptions['full'] = desc_dict
         self.client.full_description_listener = None

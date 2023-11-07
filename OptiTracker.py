@@ -59,7 +59,7 @@ class OptiTracker:
             if isinstance_namedtuple(dump[key]):
                 dump[key] = dump[key]._asdict()
 
-        with open('data.json', 'w') as json_file:
+        with open('out\data.json', 'w') as json_file:
             json.dump(dump, json_file)
 
     def save_description(self, desc_type) -> None:

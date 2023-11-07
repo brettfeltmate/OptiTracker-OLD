@@ -2,11 +2,20 @@ import sys
 import os
 import csv
 from collections import OrderedDict
+import json
+import copy 
 from Resources.APIs.Official.PythonClient.NatNetClient import NatNetClient
 
 # TODO: is this necessary?
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
+
+def isinstance_namedtuple(obj) -> bool:
+    return (
+            isinstance(obj, tuple) and
+            hasattr(obj, '_asdict') and
+            hasattr(obj, '_fields')
+    )
 
 class OptiTracker:
     def __init__(self) -> None:
@@ -18,32 +27,42 @@ class OptiTracker:
         
         # Spawn client
         client = NatNetClient()
-        client.full_description_listener = self.get_full_description
-        client.skeleton_description_listener = self.get_skeleton_descriptions
+        #client.full_description_listener = self.get_full_description
+        #client.skeleton_description_listener = self.get_skeleton_descriptions
         client.rigid_body_description_listener = self.get_rigid_body_descriptions
 
         return client
     
-    def start_client(self):
+    def start_client(self) -> bool:
         return self.client.run()
 
-    def stop_client(self):
+    def stop_client(self) -> None:
         self.client.shutdown()
 
-    def get_full_description(self, desc_dict):
+    def get_full_description(self, desc_dict) -> None:
         self.descriptions['full'] = desc_dict
         self.client.full_description_listener = None
 
-    def get_skeleton_descriptions(self, desc_dict):
+    def get_skeleton_descriptions(self, desc_dict) -> None:
         self.descriptions['skeletons'] = desc_dict
         self.client.skeleton_description_listener = None
 
-    def get_rigid_body_descriptions(self, desc_dict):
+    def get_rigid_body_descriptions(self, desc_dict) -> None:
         print(f"Type of desc_dict is {type(desc_dict)}")
         self.descriptions['rigid_bodies'] = desc_dict
         self.client.rigid_body_description_listener = None
 
-    def save_description(self, desc_type):
+    def dump_to_json(self, to_dump) -> None:
+        dump = copy.deepcopy(self.descriptions[to_dump])
+
+        for key in dump.keys():
+            if isinstance_namedtuple(dump[key]):
+                dump[key] = dump[key]._asdict()
+
+        with open('data.json', 'w') as json_file:
+            json.dump(dump, json_file)
+
+    def save_description(self, desc_type) -> None:
         print(f"Attempting to write {desc_type}...\n")
         if self.descriptions[desc_type] is None:
             print(f"Description of {desc_type} is None")
@@ -64,9 +83,7 @@ class OptiTracker:
             except OSError:
                 print("Failed to open file!")
 
-        # import json
-        # save_file = open('save_file', 'w')
-        # save_file.write( json.dumps(dico) )
+
 
 
 

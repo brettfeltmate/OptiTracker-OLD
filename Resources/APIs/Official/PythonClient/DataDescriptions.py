@@ -26,7 +26,12 @@ import copy
 import hashlib
 import random
 
-from collections import OrderedDict
+import pandas as pd
+
+from collections import OrderedDict, namedtuple
+
+rbMarker = namedtuple('rbMarker', ['active_label', 'x_pos', 'y_pos', 'z_pos'])
+Pos = namedtuple("Pos", ['x', 'y', 'z'])
 
 K_SKIP = [0,0,1]
 K_FAIL = [0,1,0]
@@ -160,12 +165,7 @@ class RBMarker:
         self.pos=pos
 
     def get_description_dict(self):
-        desc = OrderedDict()
-        desc['marker_name'] = self.marker_name
-        desc['active_label'] = self.active_label
-        desc['pos'] = self.pos
-
-        return desc
+        return rbMarker(self.active_label, self.pos[0],self.pos[1],self.pos[2])
 
     def get_as_string(self, tab_str="  ", level=0):
         out_tab_str = get_tab_str(tab_str, level)
@@ -208,12 +208,11 @@ class RigidBodyDescription:
         desc['sz_name'] = self.sz_name
         desc['id_num'] = self.id_num
         desc['parent_id'] = self.parent_id
-        desc['pos'] = self.pos
-        desc['markers'] = OrderedDict()
+        desc['pos'] = Pos(self.pos[0], self.pos[1], self.pos[2])
 
         num_markers = len(self.rb_marker_list)
         for i in range(num_markers):
-            desc['markers'][f"rb_{i}"] = self.rb_marker_list[i].get_description_dict()
+            desc[self.rb_marker_list[i].marker_name] = self.rb_marker_list[i].get_description_dict()
 
         return desc
 

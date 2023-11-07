@@ -27,7 +27,7 @@ OptiTracker.stop_client()
 # for asset_type in ['rigid_bodies', 'skeletons', 'full']:
 #     OptiTracker.save_description(asset_type)
 
-OptiTracker.save_description("rigid_bodies")
+OptiTracker.dump_to_json("rigid_bodies")
 
 
 sys.exit()

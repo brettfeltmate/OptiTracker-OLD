@@ -88,6 +88,11 @@ class NatNetClient:
         self.rigid_body_description_listener = None
         self.rb_marker_description_listener = None
 
+        # Assign callback methods to get asset specific frame data.
+        self.skeletons_frame_listener = None
+        self.rigid_bodies_frame_listener = None
+
+
         # Set Application Name
         self.__application_name = "Not Set"
 
@@ -489,6 +494,9 @@ class NatNetClient:
             offset += offset_tmp
             rigid_body_data.add_rigid_body(rigid_body)
 
+        if self.rigid_bodies_frame_listener is not None:
+            self.rigid_bodies_frame_listener(rigid_body_data.get_data_dict())
+
         return offset, rigid_body_data
 
 
@@ -506,6 +514,9 @@ class NatNetClient:
                 rel_offset, skeleton = self.__unpack_skeleton( data[offset:], major, minor )
                 offset += rel_offset
                 skeleton_data.add_skeleton(skeleton)
+
+        if self.skeletons_frame_listener is not None:
+            self.skeletons_frame_listener(skeleton_data.get_data_dict())
 
         return offset, skeleton_data
 

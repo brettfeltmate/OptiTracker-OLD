@@ -31,8 +31,24 @@ OptiTracker.stop_client()
 # pprint.pprint(OptiTracker.descriptions['rigid_bodies'])
 # print(f"\n\nsz_name: {OptiTracker.descriptions['rigid_bodies']['sz_name']}")
 
+
+print("\n\n================================")
+print("Test print of full description\n================================")
+
+
+for key in OptiTracker.descriptions['full'].keys():
+    pprint.pprint(vars(OptiTracker.descriptions['full'][key]))
+
+print("\n\n================================")
+print("Test print of skeleton data\n================================")
 for key in OptiTracker.frame['skeleton_data'].keys():
     pprint.pprint(vars(OptiTracker.frame['skeleton_data'][key]))
+
+print("\n\n================================")
+print("Test print of rigid body data\n================================")
+for key in OptiTracker.frame['rigid_bodies'].keys():
+    pprint.pprint(vars(OptiTracker.frame['rigid_bodies'][key]))
+
 
 
 sys.exit()

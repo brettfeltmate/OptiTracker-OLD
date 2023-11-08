@@ -26,6 +26,14 @@ import copy
 import hashlib
 import random
 
+from collections import OrderedDict
+from collections import namedtuple
+
+rbMarker = namedtuple("RBMarker", ['id', 'name', 'pos', 'orientation'])
+Pos = namedtuple("Pos", ['x', 'y', 'z'])
+Quat = namedtuple("Quat", ['x', 'y', 'z', 'w'])
+
+
 K_SKIP = [0,0,1]
 K_FAIL = [0,1,0]
 K_PASS = [1,0,0]
@@ -190,6 +198,15 @@ class RigidBodyMarker:
         self.size = 0
         self.error = 0
 
+    def get_data_dict(self):
+        data = OrderedDict()
+        data['pos'] = Pos(self.pos)
+        data['id_num'] = self.id_num
+        data['size'] = self.size
+        data['error'] = self.error
+
+        return data
+
     def get_as_string(self, tab_str="  ", level=0):
         out_tab_str = get_tab_str(tab_str, level)
         out_str = ""
@@ -213,6 +230,19 @@ class RigidBody:
         self.rb_marker_list.append(copy.deepcopy(rigid_body_marker))
         return len(self.rb_marker_list)
 
+    def get_data_dict(self):
+        data = OrderedDict()
+        data['id_num'] = self.id_num
+        data['pos'] = Pos(self.pos)
+        data['rot'] = Quat(self.rot)
+        data['tracking_valid'] = self.tracking_valid
+        data['error'] = self.error
+
+        for i in range(len(self.rb_marker_list)):
+            rbmarker = self.rb_marker_list[i]
+            data['rb_marker_%d'%i] = rbmarker.get_data_dict()
+
+        return data
 
     def get_as_string(self, tab_str=0, level=0):
         out_tab_str = get_tab_str(tab_str, level)
@@ -261,6 +291,13 @@ class RigidBodyData:
     def get_rigid_body_count(self):
         return len(self.rigid_body_list)
 
+    def get_data_dict(self):
+        data = OrderedDict()
+        for i in range(len(self.rigid_body_list)):
+            rigid_body = self.rigid_body_list[i]
+            data['rb_%d'%i] = rigid_body.get_data_dict()
+
+        return data
 
     def get_as_string(self, tab_str="  ", level=0):
         out_tab_str = get_tab_str(tab_str, level)
@@ -281,6 +318,14 @@ class Skeleton:
         self.rigid_body_list.append(copy.deepcopy(rigid_body))
         return len(self.rigid_body_list)
 
+    def get_data_dict(self):
+        data = OrderedDict()
+        data['id_num'] = self.id_num
+        for i in range(len(self.rigid_body_list)):
+            rigid_body = self.rigid_body_list[i]
+            data['rb_%d'%i] = rigid_body.get_data_dict()
+
+        return data
 
     def get_as_string(self, tab_str="  ", level=0):
         out_tab_str = get_tab_str(tab_str, level)
@@ -306,7 +351,14 @@ class SkeletonData:
 
     def get_skeleton_count(self):
         return len(self.skeleton_list)
+    
+    def get_data_dict(self):
+        data = OrderedDict()
+        for i in range(len(self.skeleton_list)):
+            skeleton = self.skeleton_list[i]
+            data['skeleton_%d'%i] = skeleton.get_data_dict()
 
+        return data
 
     def get_as_string(self, tab_str = "  ", level=0):
         out_tab_str = get_tab_str(tab_str, level)

@@ -610,6 +610,9 @@ class DataDescriptions():
         for i in range(num_sks):
             desc_dict[f"skeleton_{i}"] = self.skeleton_list[i].get_description_dict()
 
+        for i in range(len(self.rigid_body_list)):
+            desc_dict[f"rigid_body_{i}"] = self.rigid_body_list[i].get_description_dict()
+
         return desc_dict
 
 

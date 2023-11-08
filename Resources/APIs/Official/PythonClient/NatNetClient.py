@@ -24,8 +24,8 @@ from Resources.APIs.Official.PythonClient import MoCapData
 
 def trace( *args ):
     # uncomment the one you want to use
-    print( "".join(map(str,args)) )
-    #pass
+    #print( "".join(map(str,args)) )
+    pass
 
 #Used for Data Description functions
 def trace_dd( *args ):
@@ -36,7 +36,7 @@ def trace_dd( *args ):
 #Used for MoCap Frame Data functions
 def trace_mf( *args ):
     # uncomment the one you want to use
-    print( "".join(map(str,args)) )
+    #print( "".join(map(str,args)) )
     pass
 
 def get_message_id(data):

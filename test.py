@@ -34,20 +34,31 @@ OptiTracker.stop_client()
 
 print("\n\n================================")
 print("Test print of full description\n================================")
+pprint.pprint(OptiTracker.descriptions['full'])
+# ALso dump to file
+with open("out/fulldesc.txt", 'w') as file:
+    pprint.pprint(OptiTracker.descriptions['full'], file)
 
-
-for key in OptiTracker.descriptions['full'].keys():
-    pprint.pprint(vars(OptiTracker.descriptions['full'][key]))
+# for key in OptiTracker.descriptions['full'].keys():
+#     pprint.pprint(vars(OptiTracker.descriptions['full'][key]))
 
 print("\n\n================================")
 print("Test print of skeleton data\n================================")
-for key in OptiTracker.frame['skeleton_data'].keys():
-    pprint.pprint(vars(OptiTracker.frame['skeleton_data'][key]))
+pprint.pprint(OptiTracker.frame['skeletons'])
+with open("out/skeldesc.txt", 'w') as file:
+    pprint.pprint(OptiTracker.descriptions['full'], file)
+# for key in OptiTracker.frame['skeletons'].keys():
+#     pprint.pprint(vars(OptiTracker.frame['skeletons'][key]))
 
 print("\n\n================================")
 print("Test print of rigid body data\n================================")
-for key in OptiTracker.frame['rigid_bodies'].keys():
-    pprint.pprint(vars(OptiTracker.frame['rigid_bodies'][key]))
+pprint.pprint(OptiTracker.frame['rigid_bodies'])
+with open("out/rbdat.txt", 'w') as file:
+    pprint.pprint(OptiTracker.descriptions['full'], file)
+# for key in OptiTracker.frame['rigid_bodies'].keys():
+#     pprint.pprint(vars(OptiTracker.frame['rigid_bodies'][key]))
+
+print(OptiTracker.frame['rigid_bodies']['rb_0']['pos'].x)
 
 
 

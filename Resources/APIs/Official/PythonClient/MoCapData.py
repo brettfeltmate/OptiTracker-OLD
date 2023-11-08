@@ -200,7 +200,7 @@ class RigidBodyMarker:
 
     def get_data_dict(self):
         data = OrderedDict()
-        data['pos'] = Pos(self.pos)
+        data['pos'] = Pos(self.pos[0],self.pos[1],self.pos[2])
         data['id_num'] = self.id_num
         data['size'] = self.size
         data['error'] = self.error
@@ -233,8 +233,8 @@ class RigidBody:
     def get_data_dict(self):
         data = OrderedDict()
         data['id_num'] = self.id_num
-        data['pos'] = Pos(self.pos)
-        data['rot'] = Quat(self.rot)
+        data['pos'] = Pos(self.pos[0],self.pos[1],self.pos[2])
+        data['rot'] = Quat(self.rot[0],self.rot[1],self.rot[2],self.rot[3])
         data['tracking_valid'] = self.tracking_valid
         data['error'] = self.error
 

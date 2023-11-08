@@ -51,7 +51,6 @@ class OptiTracker:
         self.descriptions['skeletons'] = desc_dict
 
     def get_rigid_body_descriptions(self, desc_dict) -> None:
-        print(f"Type of desc_dict is {type(desc_dict)}")
         self.descriptions['rigid_bodies'] = desc_dict
 
 

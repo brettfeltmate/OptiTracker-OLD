@@ -1,3 +1,4 @@
+
 import sys
 import os
 import time
@@ -12,14 +13,8 @@ OptiTracker = OptiTracker()
 
 OptiTracker.init_client()
 
+
 OptiTracker.start_client()
-
-# Record one second worth of frame data
-wait_until = time.time() + 1
-while time.time() < wait_until:
-    pass
-
-OptiTracker.stop_client()
 
 
 print("\n\n================================")
@@ -32,23 +27,44 @@ with open("out/fulldesc.txt", 'w') as file:
     file.write("================================================\n\n")
     pprint.pprint(OptiTracker.descriptions['full'], file)
 
-print("\n\n================================")
-print("Test print of skeleton data\n================================")
-pprint.pprint(OptiTracker.frame['skeletons'])
-with open("out/skeldesc.txt", 'w') as file:
+
+with open("out/skel_data.txt", 'w') as file:
     file.write("================================================")
     file.write("\nTest print of 1s of frame data relating to hand skeleton\n")
     file.write("================================================\n\n")
-    pprint.pprint(OptiTracker.frame['skeletons'], file)
 
-print("\n\n================================")
-print("Test print of rigid body data\n================================")
-pprint.pprint(OptiTracker.frame['rigid_bodies'])
+record_for = 1
+input(f"Press enter then get moving.\nWill record skeleton data for {record_for} second(s).")
+
+# Record one second worth of frame data
+wait_until = time.time() + 1
+with open("out/skel_data.txt", 'a') as file:
+    while time.time() < wait_until:
+        pprint.pprint(OptiTracker.frame['skeletons'], file)
+        file.write("\n\n")
+        file.flush()
+
+
 with open("out/rbdat.txt", 'w') as file:
     file.write("================================================")
-    file.write("\nTest print of 1s of frame data relating to rigid bodies (i.e., hand & 'table')\n")
+    file.write("\nTest print of 1s of frame data")
+    file.write("\nrelating to rigid bodies (i.e., hand & 'table')\n")
     file.write("================================================\n\n")
-    pprint.pprint(OptiTracker.descriptions['full'], file)
+
+record_for = 1
+input(f"Press enter then get moving.\nWill record rigid body data for {record_for} second(s).")
+
+# Record one second worth of frame data
+wait_until = time.time() + 1
+with open("out/rb_data.txt", 'a') as file:
+    while time.time() < wait_until:
+        pprint.pprint(OptiTracker.frame['rigid_bodies'], file)
+        file.write("\n\n")      
+        file.flush()  
+
+
+
+OptiTracker.stop_client()
 
 
 # print(OptiTracker.frame['rigid_bodies']['rb_0']['pos'].x)

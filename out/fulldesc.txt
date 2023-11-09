@@ -1,3 +1,7 @@
+================================================
+Test print of complete description of all models
+================================================
+
 OrderedDict([('skeleton_0',
               OrderedDict([('name', b'sk'),
                            ('id_num', 0),
@@ -136,12 +140,12 @@ OrderedDict([('skeleton_0',
                            ('parent_id', 4294967295),
                            ('pos', Pos(x=0.0, y=0.0, z=0.0)),
                            ('Marker1',
-                            rbMarker(active_label=0, x_pos=0.576489269733429, y_pos=-0.002294231206178665, z_pos=-0.3334582448005676)),
+                            rbMarker(active_label=0, x_pos=0.5764889717102051, y_pos=-0.002294230042025447, z_pos=-0.3334580063819885)),
                            ('Marker2',
-                            rbMarker(active_label=0, x_pos=0.5665579438209534, y_pos=0.0016726711764931679, z_pos=0.24027222394943237)),
+                            rbMarker(active_label=0, x_pos=0.5665580034255981, y_pos=0.0016726700123399496, z_pos=0.24027200043201447)),
                            ('Marker3',
-                            rbMarker(active_label=0, x_pos=0.002900838851928711, y_pos=0.002420603297650814, z_pos=0.22895687818527222)),
+                            rbMarker(active_label=0, x_pos=0.002900840016081929, y_pos=0.002420600038021803, z_pos=0.22895699739456177)),
                            ('Marker4',
-                            rbMarker(active_label=0, x_pos=-0.5823302865028381, y_pos=-0.004569872282445431, z_pos=0.2103344202041626)),
+                            rbMarker(active_label=0, x_pos=-0.5823299884796143, y_pos=-0.004569869954138994, z_pos=0.21033400297164917)),
                            ('Marker5',
-                            rbMarker(active_label=0, x_pos=-0.5636178851127625, y_pos=0.0027708252891898155, z_pos=-0.34610530734062195))]))])
+                            rbMarker(active_label=0, x_pos=-0.563618004322052, y_pos=0.0027708299458026886, z_pos=-0.34610500931739807))]))])

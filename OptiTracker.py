@@ -26,7 +26,7 @@ class OptiTracker:
         client = NatNetClient()
         client.full_description_listener = self.get_full_description
         #client.skeleton_description_listener = self.get_skeleton_descriptions
-        client.rigid_body_description_listener = self.get_rigid_body_descriptions
+        #client.rigid_body_description_listener = self.get_rigid_body_descriptions
         client.rigid_bodies_frame_listener = self.get_rigid_bodies_frame_data
         client.skeletons_frame_listener = self.get_skeletons_frame_data
 

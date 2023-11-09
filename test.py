@@ -14,22 +14,12 @@ OptiTracker.init_client()
 
 OptiTracker.start_client()
 
-# Give it a sec to make sure things get populated
-# Almost certainly unnecessary.
-wait_until = time.time() + 2
+# Record one second worth of frame data
+wait_until = time.time() + 1
 while time.time() < wait_until:
     pass
 
-# Hopefully now each of these should point to their 
-# corresponding descriptions and can be written to csv
-
 OptiTracker.stop_client()
-
-# for asset_type in ['rigid_bodies', 'skeletons', 'full']:
-#     OptiTracker.save_description(asset_type)
-
-# pprint.pprint(OptiTracker.descriptions['rigid_bodies'])
-# print(f"\n\nsz_name: {OptiTracker.descriptions['rigid_bodies']['sz_name']}")
 
 
 print("\n\n================================")
@@ -37,28 +27,31 @@ print("Test print of full description\n================================")
 pprint.pprint(OptiTracker.descriptions['full'])
 # ALso dump to file
 with open("out/fulldesc.txt", 'w') as file:
+    file.write("================================================")
+    file.write("\nTest print of complete description of all models\n")
+    file.write("================================================\n\n")
     pprint.pprint(OptiTracker.descriptions['full'], file)
-
-# for key in OptiTracker.descriptions['full'].keys():
-#     pprint.pprint(vars(OptiTracker.descriptions['full'][key]))
 
 print("\n\n================================")
 print("Test print of skeleton data\n================================")
 pprint.pprint(OptiTracker.frame['skeletons'])
 with open("out/skeldesc.txt", 'w') as file:
-    pprint.pprint(OptiTracker.descriptions['full'], file)
-# for key in OptiTracker.frame['skeletons'].keys():
-#     pprint.pprint(vars(OptiTracker.frame['skeletons'][key]))
+    file.write("================================================")
+    file.write("\nTest print of 1s of frame data relating to hand skeleton\n")
+    file.write("================================================\n\n")
+    pprint.pprint(OptiTracker.frame['skeletons'], file)
 
 print("\n\n================================")
 print("Test print of rigid body data\n================================")
 pprint.pprint(OptiTracker.frame['rigid_bodies'])
 with open("out/rbdat.txt", 'w') as file:
+    file.write("================================================")
+    file.write("\nTest print of 1s of frame data relating to rigid bodies (i.e., hand & 'table')\n")
+    file.write("================================================\n\n")
     pprint.pprint(OptiTracker.descriptions['full'], file)
-# for key in OptiTracker.frame['rigid_bodies'].keys():
-#     pprint.pprint(vars(OptiTracker.frame['rigid_bodies'][key]))
 
-print(OptiTracker.frame['rigid_bodies']['rb_0']['pos'].x)
+
+# print(OptiTracker.frame['rigid_bodies']['rb_0']['pos'].x)
 
 
 

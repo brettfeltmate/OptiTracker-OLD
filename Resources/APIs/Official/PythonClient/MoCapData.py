@@ -198,8 +198,9 @@ class RigidBodyMarker:
         self.size = 0
         self.error = 0
 
-    def get_data_dict(self):
+    def get_data_dict(self, frame_number):
         data = OrderedDict()
+        data['frame_number'] = frame_number
         data['pos'] = Pos(self.pos[0],self.pos[1],self.pos[2])
         data['id_num'] = self.id_num
         data['size'] = self.size
@@ -230,8 +231,9 @@ class RigidBody:
         self.rb_marker_list.append(copy.deepcopy(rigid_body_marker))
         return len(self.rb_marker_list)
 
-    def get_data_dict(self):
+    def get_data_dict(self, frame_number):
         data = OrderedDict()
+        data['frame_number'] = frame_number
         data['id_num'] = self.id_num
         data['pos'] = Pos(self.pos[0],self.pos[1],self.pos[2])
         data['rot'] = Quat(self.rot[0],self.rot[1],self.rot[2],self.rot[3])
@@ -240,7 +242,7 @@ class RigidBody:
 
         for i in range(len(self.rb_marker_list)):
             rbmarker = self.rb_marker_list[i]
-            data['rb_marker_%d'%i] = rbmarker.get_data_dict()
+            data['rb_marker_%d'%i] = rbmarker.get_data_dict(frame_number)
 
         return data
 
@@ -291,11 +293,12 @@ class RigidBodyData:
     def get_rigid_body_count(self):
         return len(self.rigid_body_list)
 
-    def get_data_dict(self):
+    def get_data_dict(self, frame_number):
         data = OrderedDict()
+        data['frame_number'] = frame_number
         for i in range(len(self.rigid_body_list)):
             rigid_body = self.rigid_body_list[i]
-            data['rb_%d'%i] = rigid_body.get_data_dict()
+            data['rb_%d'%i] = rigid_body.get_data_dict(frame_number)
 
         return data
 
@@ -318,12 +321,13 @@ class Skeleton:
         self.rigid_body_list.append(copy.deepcopy(rigid_body))
         return len(self.rigid_body_list)
 
-    def get_data_dict(self):
+    def get_data_dict(self, frame_number):
         data = OrderedDict()
+        data['frame_number'] = frame_number
         data['id_num'] = self.id_num
         for i in range(len(self.rigid_body_list)):
             rigid_body = self.rigid_body_list[i]
-            data['rb_%d'%i] = rigid_body.get_data_dict()
+            data['rb_%d'%i] = rigid_body.get_data_dict(frame_number)
 
         return data
 
@@ -352,11 +356,12 @@ class SkeletonData:
     def get_skeleton_count(self):
         return len(self.skeleton_list)
     
-    def get_data_dict(self):
+    def get_data_dict(self, frame_number):
         data = OrderedDict()
+        data['frame_number'] = frame_number
         for i in range(len(self.skeleton_list)):
             skeleton = self.skeleton_list[i]
-            data['skeleton_%d'%i] = skeleton.get_data_dict()
+            data['skeleton_%d'%i] = skeleton.get_data_dict(frame_number)
 
         return data
 

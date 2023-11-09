@@ -349,10 +349,6 @@ class NatNetClient:
 
         rigid_body = MoCapData.RigidBody(new_id, pos, rot)
 
-        # Send information to any listener.
-        if self.rigid_body_listener is not None:
-            self.rigid_body_listener( new_id, pos, rot )
-
         # RB Marker Data ( Before version 3.0.  After Version 3.0 Marker data is in description )
         if( major < 3  and major != 0) :
             # Marker count (4 bytes)
@@ -432,7 +428,7 @@ class NatNetClient:
 
         return offset, skeleton
 
-#Unpack Mocap Data Functions
+    # Unpack Mocap Data Functions
     def __unpack_frame_prefix_data( self, data):
         offset = 0
         # Frame number (4 bytes)
@@ -494,8 +490,6 @@ class NatNetClient:
             offset += offset_tmp
             rigid_body_data.add_rigid_body(rigid_body)
 
-        if self.rigid_bodies_frame_listener is not None:
-            self.rigid_bodies_frame_listener(rigid_body_data.get_data_dict())
 
         return offset, rigid_body_data
 
@@ -515,8 +509,6 @@ class NatNetClient:
                 offset += rel_offset
                 skeleton_data.add_skeleton(skeleton)
 
-        if self.skeletons_frame_listener is not None:
-            self.skeletons_frame_listener(skeleton_data.get_data_dict())
 
         return offset, skeleton_data
 
@@ -745,11 +737,17 @@ class NatNetClient:
         mocap_data.set_rigid_body_data(rigid_body_data)
         rigid_body_count = rigid_body_data.get_rigid_body_count()
 
+        if self.rigid_bodies_frame_listener is not None:
+            self.rigid_bodies_frame_listener(rigid_body_data.get_data_dict(frame_number))
+
         # Skeleton Data
         rel_offset, skeleton_data = self.__unpack_skeleton_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
         mocap_data.set_skeleton_data(skeleton_data)
         skeleton_count = skeleton_data.get_skeleton_count()
+
+        if self.skeletons_frame_listener is not None:
+            self.skeletons_frame_listener(skeleton_data.get_data_dict(frame_number))
 
         # Labeled Marker Data
         rel_offset, labeled_marker_data = self.__unpack_labeled_marker_data(data[offset:], (packet_size - offset),major, minor)

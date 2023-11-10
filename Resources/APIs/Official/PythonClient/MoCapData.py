@@ -26,7 +26,7 @@ import copy
 import hashlib
 import random
 
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 rbMarker = namedtuple("RBMarker", ['id', 'name', 'pos', 'orientation'])
 Pos = namedtuple("Pos", ['x', 'y', 'z'])
@@ -198,7 +198,7 @@ class RigidBodyMarker:
         self.error = 0
 
     def get_data_dict(self):
-        data = {}
+        data = OrderedDict()
         data['pos'] = Pos(self.pos[0],self.pos[1],self.pos[2])
         data['id_num'] = self.id_num
         data['size'] = self.size
@@ -230,7 +230,7 @@ class RigidBody:
         return len(self.rb_marker_list)
 
     def get_data_dict(self):
-        data = {}
+        data = OrderedDict()
         data['id_num'] = self.id_num
         data['pos'] = Pos(self.pos[0],self.pos[1],self.pos[2])
         data['rot'] = Quat(self.rot[0],self.rot[1],self.rot[2],self.rot[3])
@@ -291,7 +291,7 @@ class RigidBodyData:
         return len(self.rigid_body_list)
 
     def get_data_dict(self):
-        data = {}
+        data = OrderedDict()
         for i in range(len(self.rigid_body_list)):
             rigid_body = self.rigid_body_list[i]
             data['rb_%d'%i] = rigid_body.get_data_dict()
@@ -318,7 +318,7 @@ class Skeleton:
         return len(self.rigid_body_list)
 
     def get_data_dict(self):
-        data = {}
+        data = OrderedDict()
         data['id_num'] = self.id_num
         for i in range(len(self.rigid_body_list)):
             rigid_body = self.rigid_body_list[i]
@@ -352,7 +352,7 @@ class SkeletonData:
         return len(self.skeleton_list)
     
     def get_data_dict(self):
-        data = {}
+        data = OrderedDict()
         for i in range(len(self.skeleton_list)):
             skeleton = self.skeleton_list[i]
             data['skeleton_%d'%i] = skeleton.get_data_dict()

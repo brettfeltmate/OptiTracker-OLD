@@ -887,10 +887,6 @@ class NatNetClient:
                    marker_offset[0], marker_offset[1], marker_offset[2],marker_name ))
 
             offset = offset3
-            
-        # If description listener provided, return rigid body descriptions
-        if self.rigid_body_description_listener is not None:
-            self.rigid_body_description_listener(rb_desc.get_description_dict())
 
         trace_dd("\tunpack_rigid_body_description processed bytes: ", offset)
         return offset, rb_desc
@@ -923,10 +919,6 @@ class NatNetClient:
             offset_tmp, rb_desc_tmp = self.__unpack_rigid_body_description( data[offset:], major, minor )
             offset+= offset_tmp
             skeleton_desc.add_rigid_body_description(rb_desc_tmp)
-
-        # If description listener provided, return skeleton descriptions
-        if self.skeleton_description_listener is not None:
-            self.skeleton_description_listener(skeleton_desc.get_description_dict())
             
         return offset, skeleton_desc
 
@@ -1127,10 +1119,17 @@ class NatNetClient:
             trace_dd("\t"+ str(i) +" datasets processed of " + str(dataset_count))
             trace_dd("\t "+ str(offset) +" bytes processed of " + str(packet_size) )
 
-        if self.full_description_listener is not None:
-            desc_dict = data_descs.get_description_dict()
+        # If listener provided, return description of each rigid body
+        if self.rigid_body_description_listener is not None:
+            num_rbs = len(data_descs.rigid_body_list)
+            for i in range(num_rbs):
+                self.rigid_body_description_listener(data_descs.rigid_body_list[i].get_description_dict())
 
-            self.full_description_listener(desc_dict)
+        # Likewise for skeleton descriptions
+        if self.skeleton_description_listener is not None:
+            num_sks = len(data_descs.skeleton_list)
+            for i in range(num_sks):
+                self.skeleton_description_listener(data_descs.skeleton_list[i].get_description_dict())
 
         return offset, data_descs
 
@@ -1304,10 +1303,10 @@ class NatNetClient:
 
             offset_tmp, mocap_data = self.__unpack_mocap_data( data[offset:], packet_size, major, minor )
             offset += offset_tmp
-            print("MoCap Frame: %d\n"%(mocap_data.prefix_data.frame_number))
             # get a string version of the data for output
             mocap_data_str=mocap_data.get_as_string()
             if print_level >= 1:
+                print("MoCap Frame: %d\n"%(mocap_data.prefix_data.frame_number))
                 print("%s\n"%mocap_data_str)
 
         elif message_id == self.NAT_MODELDEF :
@@ -1315,10 +1314,10 @@ class NatNetClient:
             trace( "Packet Size : %d"% packet_size )
             offset_tmp, data_descs = self.__unpack_data_descriptions( data[offset:], packet_size, major, minor)
             offset += offset_tmp
-            print("Data Descriptions:\n")
             # get a string version of the data for output
             data_descs_str=data_descs.get_as_string()
             if print_level>0:
+                print("Data Descriptions:\n")
                 print("%s\n"%(data_descs_str))
 
         elif message_id == self.NAT_SERVERINFO :

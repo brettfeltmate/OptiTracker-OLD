@@ -250,13 +250,13 @@ class SkeletonDescription:
 
     def get_description_dict(self):
         desc = OrderedDict()
-        desc['name'] = self.name
+        desc['name'] = self.name.decode('utf-8')
         desc['id_num'] = self.id_num
         desc['rigid_body_descriptions'] = OrderedDict()
         
         num_bones = len(self.rigid_body_description_list)
         for i in range(num_bones):
-            desc['rigid_body_descriptions'][f"rigid_body_bone_{i}"] = \
+            desc['rigid_body_descriptions'][f"rigid_body_{i}"] = \
             self.rigid_body_description_list[i].get_description_dict()
 
         return desc

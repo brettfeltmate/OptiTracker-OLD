@@ -1,9 +1,7 @@
 TODO:
-- RBDat.txt seems to contain descriptions and not frame data?
-    - Don't know if this issue is on NNC's end or OptiTracker's.
-- Move frame_listeners to __unpack_mocap_data.
-    - In hindsight, hiding them in each __unpack function just adds to API opacity.
-- Attach frame_prefix to returned frames.
+- (FIXED) RBDat.txt seems to contain descriptions and not frame data?
+- (DONE) Move frame_listeners to __unpack_mocap_data.
+- (DONE) Attach frame_prefix to returned frames.
 - Define SQL DBs for each asset type.
 - Parcel out frame data into respective DBs.
 
@@ -18,3 +16,4 @@ Notes:
 - Ideally, future versions of OptiTracker will only spawn DBs as needed.
 - Lines 181-184 in NatNetClient.py (tmp_commands) make me wonder what other commands are available
     - Would be great if these could be used to procedurally label & record takes by trial.
+    - C-hooks could be used to leverage the Cpp API which has these features. 

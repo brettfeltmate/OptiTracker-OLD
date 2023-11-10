@@ -737,8 +737,9 @@ class NatNetClient:
         mocap_data.set_rigid_body_data(rigid_body_data)
         rigid_body_count = rigid_body_data.get_rigid_body_count()
 
+        # If listener provided, return rigid body frame data
         if self.rigid_bodies_frame_listener is not None:
-            self.rigid_bodies_frame_listener(rigid_body_data.get_data_dict(frame_number))
+            self.rigid_bodies_frame_listener(frame_number, rigid_body_data.get_data_dict())
 
         # Skeleton Data
         rel_offset, skeleton_data = self.__unpack_skeleton_data(data[offset:], (packet_size - offset),major, minor)
@@ -746,8 +747,9 @@ class NatNetClient:
         mocap_data.set_skeleton_data(skeleton_data)
         skeleton_count = skeleton_data.get_skeleton_count()
 
+        # If listener provided, return skeleton frame data
         if self.skeletons_frame_listener is not None:
-            self.skeletons_frame_listener(skeleton_data.get_data_dict(frame_number))
+            self.skeletons_frame_listener(frame_number, skeleton_data.get_data_dict())
 
         # Labeled Marker Data
         rel_offset, labeled_marker_data = self.__unpack_labeled_marker_data(data[offset:], (packet_size - offset),major, minor)
@@ -885,7 +887,8 @@ class NatNetClient:
                    marker_offset[0], marker_offset[1], marker_offset[2],marker_name ))
 
             offset = offset3
-        
+            
+        # If description listener provided, return rigid body descriptions
         if self.rigid_body_description_listener is not None:
             self.rigid_body_description_listener(rb_desc.get_description_dict())
 
@@ -921,6 +924,7 @@ class NatNetClient:
             offset+= offset_tmp
             skeleton_desc.add_rigid_body_description(rb_desc_tmp)
 
+        # If description listener provided, return skeleton descriptions
         if self.skeleton_description_listener is not None:
             self.skeleton_description_listener(skeleton_desc.get_description_dict())
             
@@ -1448,6 +1452,7 @@ class NatNetClient:
         ##Example Commands
         ## Get NatNet and server versions
         #self.send_request(self.command_socket, self.NAT_CONNECT, "", (self.server_ip_address, self.command_port) )
+        
         ## Request the model definitions
         self.send_request(self.command_socket, self.NAT_REQUEST_MODELDEF, "",  (self.server_ip_address, self.command_port) )
         return True

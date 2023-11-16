@@ -4,6 +4,12 @@ TODO:
 - (DONE) Attach frame_prefix to returned frames.
 - Define SQL DBs for each asset type.
 - Parcel out frame data into respective DBs.
+- Find out why frame data contains ~1/2 the data they should.
+    - Cameras should be sampling at 120Hz, but only 65 frames were returned
+- Find out if initial empty frame is by design or error.
+    - If the former, easy enough to just pass over.
+    - If the latter, fixing the error would be nice.
+        - That said, assuming that only the initial frame is lost, this is utterly inconsequential.
 
 
 

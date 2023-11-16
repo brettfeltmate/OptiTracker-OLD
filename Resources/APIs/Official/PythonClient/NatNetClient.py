@@ -781,20 +781,20 @@ class NatNetClient:
         tracked_models_changed = frame_suffix_data.tracked_models_changed
         # Send information to any listener.
         if self.new_frame_listener is not None:
-            data_dict={}
-            data_dict["frame_number"]=frame_number
-            data_dict[ "timecode"] = timecode
-            data_dict[ "timecode_sub"] = timecode_sub
-            data_dict[ "timestamp"] = timestamp
-            data_dict[ "is_recording"] = is_recording
-            data_dict[ "tracked_models_changed"] = tracked_models_changed
-            data_dict[ "marker_set_data"] = marker_set_data
-            #data_dict[ "unlabeled_markers_count"] = unlabeled_markers_count
-            data_dict[ "rigid_body_data"] = rigid_body_data
-            data_dict[ "skeleton_data"] = skeleton_data
-            data_dict[ "labeled_marker_data"] = labeled_marker_data
+            # data_dict={}
+            # data_dict["frame_number"]=frame_number
+            # data_dict[ "timecode"] = timecode
+            # data_dict[ "timecode_sub"] = timecode_sub
+            # data_dict[ "timestamp"] = timestamp
+            # data_dict[ "is_recording"] = is_recording
+            # data_dict[ "tracked_models_changed"] = tracked_models_changed
+            # data_dict[ "marker_set_data"] = marker_set_data
+            # #data_dict[ "unlabeled_markers_count"] = unlabeled_markers_count
+            # data_dict[ "rigid_body_data"] = rigid_body_data
+            # data_dict[ "skeleton_data"] = skeleton_data
+            # data_dict[ "labeled_marker_data"] = labeled_marker_data
 
-            self.new_frame_listener( data_dict, mocap_data )
+            self.new_frame_listener( mocap_data.get_data_dict() )
         trace_mf( "MoCap Frame End\n-----------------" )
         return offset, mocap_data
 

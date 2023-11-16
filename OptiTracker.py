@@ -25,12 +25,13 @@ class OptiTracker:
         client = NatNetClient()
 
         # Set frame listeners
-        client.rigid_bodies_frame_listener = self.get_rigid_bodies_frame_data
-        client.skeletons_frame_listener = self.get_skeletons_frame_data
+        client.new_frame_listener = self.get_new_frame_data
+        # client.rigid_bodies_frame_listener = self.get_rigid_bodies_frame_data
+        # client.skeletons_frame_listener = self.get_skeletons_frame_data
 
-        # Set description listeners
-        client.skeleton_description_listener = self.get_skeleton_descriptions
-        client.rigid_body_description_listener = self.get_rigid_body_descriptions
+        # # Set description listeners
+        # client.skeleton_description_listener = self.get_skeleton_descriptions
+        # client.rigid_body_description_listener = self.get_rigid_body_descriptions
 
         return client
     
@@ -41,6 +42,11 @@ class OptiTracker:
     # Stop NatNetClient
     def stop_client(self) -> None:
         self.client.shutdown()
+
+    # Get new frame data
+    def get_new_frame_data(self, frame_number, frame_data) -> None:
+        # Store frame data
+        self.frames[frame_number] = frame_data
 
     # Get frame data for skeletons
     def get_skeletons_frame_data(self, frame_number, frame_data) -> None:
@@ -61,7 +67,6 @@ class OptiTracker:
     def get_rigid_body_descriptions(self, desc_dict) -> None:
         # Store rigid body descriptions
         self.descriptions['rigid_bodies'] = desc_dict
-
 
 
 

@@ -26,7 +26,7 @@ import copy
 import hashlib
 import random
 
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 rbMarker = namedtuple("RBMarker", ['id', 'name', 'pos', 'orientation'])
 Pos = namedtuple("Pos", ['x', 'y', 'z'])
@@ -119,6 +119,12 @@ class FramePrefixData:
     def __init__(self, frame_number):
         self.frame_number=frame_number
 
+    def get_data_dict(self):
+        data = OrderedDict()
+        data['frame_number'] = self.frame_number
+
+        return data
+
     def get_as_string(self,tab_str="  ", level = 0):
         out_tab_str = get_tab_str(tab_str, level)
         out_str = "%sFrame #: %3.1d\n"%(out_tab_str,self.frame_number)
@@ -140,6 +146,12 @@ class MarkerData:
     def get_num_points(self):
         return len(self.marker_pos_list)
 
+    def get_data_dict(self):
+        data = OrderedDict()
+        data['model_name'] = self.model_name
+        data['marker_pos_list'] = self.marker_pos_list
+
+        return data
 
     def get_as_string(self, tab_str="  ", level=0):
         out_tab_str = get_tab_str(tab_str, level)
@@ -172,6 +184,17 @@ class MarkerSetData:
 
     def get_unlabeled_marker_count(self):
         return self.unlabeled_markers.get_num_points()
+    
+    def get_data_dict(self):
+        data = OrderedDict()
+        for i in range(len(self.marker_data_list)):
+            marker_data = self.marker_data_list[i]
+            data['marker_data_%d'%i] = marker_data.get_data_dict()
+
+        data['unlabeled_markers'] = self.unlabeled_markers.get_data_dict()
+
+        return data
+
     def get_as_string(self, tab_str="  ", level=0):
         out_tab_str  = get_tab_str(tab_str, level)
 
@@ -198,7 +221,7 @@ class RigidBodyMarker:
         self.error = 0
 
     def get_data_dict(self):
-        data = {}
+        data = OrderedDict()
         data['pos'] = Pos(self.pos[0],self.pos[1],self.pos[2])
         data['id_num'] = self.id_num
         data['size'] = self.size
@@ -230,7 +253,7 @@ class RigidBody:
         return len(self.rb_marker_list)
 
     def get_data_dict(self):
-        data = {}
+        data = OrderedDict()
         data['id_num'] = self.id_num
         data['pos'] = Pos(self.pos[0],self.pos[1],self.pos[2])
         data['rot'] = Quat(self.rot[0],self.rot[1],self.rot[2],self.rot[3])
@@ -291,7 +314,7 @@ class RigidBodyData:
         return len(self.rigid_body_list)
 
     def get_data_dict(self):
-        data = {}
+        data = OrderedDict()
         for i in range(len(self.rigid_body_list)):
             rigid_body = self.rigid_body_list[i]
             data['rb_%d'%i] = rigid_body.get_data_dict()
@@ -318,7 +341,7 @@ class Skeleton:
         return len(self.rigid_body_list)
 
     def get_data_dict(self):
-        data = {}
+        data = OrderedDict()
         data['id_num'] = self.id_num
         for i in range(len(self.rigid_body_list)):
             rigid_body = self.rigid_body_list[i]
@@ -352,7 +375,7 @@ class SkeletonData:
         return len(self.skeleton_list)
     
     def get_data_dict(self):
-        data = {}
+        data = OrderedDict()
         for i in range(len(self.skeleton_list)):
             skeleton = self.skeleton_list[i]
             data['skeleton_%d'%i] = skeleton.get_data_dict()
@@ -392,6 +415,16 @@ class LabeledMarker:
         point_cloud_solved = ( self.param & 0x02 ) != 0
         model_solved = ( self.param & 0x04 ) != 0
         return occluded,point_cloud_solved, model_solved
+    
+    def get_data_dict(self):
+        data = OrderedDict()
+        data['id_num'] = self.id_num
+        data['pos'] = Pos(self.pos[0],self.pos[1],self.pos[2])
+        data['size'] = self.size
+        data['param'] = self.param
+        data['residual'] = self.residual
+
+        return data
 
     def get_as_string(self, tab_str, level):
         out_tab_str = get_tab_str(tab_str, level)
@@ -420,6 +453,14 @@ class LabeledMarkerData:
 
     def get_labeled_marker_count(self):
         return len(self.labeled_marker_list)
+    
+    def get_data_dict(self):
+        data = OrderedDict()
+        for i in range(len(self.labeled_marker_list)):
+            labeled_marker = self.labeled_marker_list[i]
+            data['labeled_marker_%d'%i] = labeled_marker.get_data_dict()
+
+        return data
 
     def get_as_string(self, tab_str = "  ", level = 0):
         out_tab_str = get_tab_str(tab_str, level)
@@ -444,6 +485,12 @@ class ForcePlateChannelData:
         self.frame_list.append(copy.deepcopy(frame_entry))
         return len(self.frame_list)
 
+    def get_data_dict(self):
+        data = OrderedDict()
+        for i in range(len(self.frame_list)):
+            data['frame_%d'%i] = self.frame_list[i]
+
+        return data
 
     def get_as_string(self, tab_str, level, channel_num = -1):
         fc_max = 4
@@ -472,6 +519,14 @@ class ForcePlate:
         self.channel_data_list.append(copy.deepcopy(channel_data))
         return len(self.channel_data_list)
 
+    def get_data_dict(self):
+        data = OrderedDict()
+        for i in range(len(self.channel_data_list)):
+            channel_data = self.channel_data_list[i]
+            data['channel_%d'%i] = channel_data.get_data_dict()
+
+        return data
+
     def get_as_string(self, tab_str, level):
         out_tab_str = get_tab_str(tab_str, level)
         out_str = ""
@@ -495,6 +550,13 @@ class ForcePlateData:
     def get_force_plate_count(self):
         return len(self.force_plate_list)
 
+    def get_data_dict(self):
+        data = OrderedDict()
+        for i in range(len(self.force_plate_list)):
+            force_plate = self.force_plate_list[i]
+            data['force_plate_%d'%i] = force_plate.get_data_dict()
+
+        return data
 
     def get_as_string(self, tab_str="  ", level=0):
         out_tab_str = get_tab_str(tab_str, level)
@@ -518,7 +580,13 @@ class DeviceChannelData:
     def add_frame_entry(self, frame_entry):
         self.frame_list.append(copy.deepcopy(frame_entry))
         return len(self.frame_list)
+    
+    def get_data_dict(self):
+        data = OrderedDict()
+        for i in range(len(self.frame_list)):
+            data['frame_%d'%i] = self.frame_list[i]
 
+        return data
 
     def get_as_string(self, tab_str, level, channel_num = -1):
         fc_max = 4
@@ -547,6 +615,14 @@ class Device:
     def add_channel_data(self, channel_data):
         self.channel_data_list.append(copy.deepcopy(channel_data))
         return len(self.channel_data_list)
+    
+    def get_data_dict(self):
+        data = OrderedDict()
+        for i in range(len(self.channel_data_list)):
+            channel_data = self.channel_data_list[i]
+            data['channel_%d'%i] = channel_data.get_data_dict()
+
+        return data
 
     def get_as_string(self, tab_str, level, device_num):
         out_tab_str = get_tab_str(tab_str, level)
@@ -573,6 +649,13 @@ class DeviceData:
     def get_device_count(self):
         return len(self.device_list)
 
+    def get_data_dict(self):
+        data = OrderedDict()
+        for i in range(len(self.device_list)):
+            device = self.device_list[i]
+            data['device_%d'%i] = device.get_data_dict()
+
+        return data
 
     def get_as_string(self, tab_str = "  ", level = 0):
         out_tab_str = get_tab_str(tab_str, level)
@@ -624,6 +707,20 @@ class MoCapData:
         self.force_plate_data = None
         self.device_data = None
         self.suffix_data = None
+
+    # export data for all attributes as a dictionary
+    def get_data_dict(self):
+        data = OrderedDict()
+        data['prefix_data'] = self.prefix_data.get_data_dict()
+        data['marker_set_data'] = self.marker_set_data.get_data_dict()
+        data['rigid_body_data'] = self.rigid_body_data.get_data_dict()
+        data['skeleton_data'] = self.skeleton_data.get_data_dict()
+        data['labeled_marker_data'] = self.labeled_marker_data.get_data_dict()
+        data['force_plate_data'] = self.force_plate_data.get_data_dict()
+        data['device_data'] = self.device_data.get_data_dict()
+        data['suffix_data'] = self.suffix_data.get_data_dict()
+
+        return data
 
     def set_prefix_data(self, new_prefix_data):
         self.prefix_data = new_prefix_data

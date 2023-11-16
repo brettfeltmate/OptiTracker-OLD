@@ -680,6 +680,13 @@ class FrameSuffixData:
         self.is_recording = False
         self.tracked_models_changed = True
 
+    def get_data_dict(self):
+        data = OrderedDict()
+        for prop, val in vars(self).items():
+            data[prop] = val
+
+        return data
+
 
     def get_as_string(self, tab_str="  ", level=0):
         out_tab_str = get_tab_str(tab_str, level)

@@ -21,8 +21,8 @@ class OptiTracker:
             'rigid_bodies': {}
         } 
         self.frames = {  # Frame data, keys denote frame numbers
-            'skeletons': {},
-            'rigid_bodies': {}
+            # 'skeletons': {},
+            # 'rigid_bodies': {}
         }        
 
     # Create NatNetClient instance
@@ -51,9 +51,9 @@ class OptiTracker:
         self.client.shutdown()
 
     # Get new frame data
-    def get_new_frame_data(self, frame_number, frame_data) -> None:
+    def get_new_frame_data(self, frame_data) -> None:
         # Store frame data
-        self.frames[frame_number] = frame_data
+        self.frames[frame_data['prefix_data']['frame_number']] = frame_data
 
     # Get frame data for skeletons
     def get_skeletons_frame_data(self, frame_number, frame_data) -> None:

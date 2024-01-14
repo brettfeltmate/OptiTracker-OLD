@@ -149,7 +149,6 @@ class NatNetClient:
     def get_server_address(self):
         return self.server_ip_address
 
-
     def set_use_multicast(self, use_multicast):
         if not self.__is_locked:
             self.use_multicast = use_multicast
@@ -188,7 +187,6 @@ class NatNetClient:
                 #self.set_print_results(print_results)
         return return_code
 
-
     def get_major(self):
         return self.__nat_net_requested_version[0]
 
@@ -202,7 +200,6 @@ class NatNetClient:
 
     def get_print_level(self):
         return self.print_level
-
 
     def connected(self):
         ret_value = True
@@ -220,7 +217,6 @@ class NatNetClient:
             (self.__server_version[3] == 0):
             ret_value = False
         return ret_value
-
 
     # Create a command socket to attach to the NatNet stream
     def __create_command_socket( self ):
@@ -493,7 +489,6 @@ class NatNetClient:
 
         return offset, rigid_body_data
 
-
     def __unpack_skeleton_data( self, data, packet_size, major, minor):
         skeleton_data = MoCapData.SkeletonData()
 
@@ -709,7 +704,6 @@ class NatNetClient:
 
         return offset, frame_suffix_data
 
-
     # Unpack data from a motion capture frame message
     def __unpack_mocap_data( self, data : bytes, packet_size, major, minor):
         mocap_data = MoCapData.MoCapData()
@@ -797,7 +791,6 @@ class NatNetClient:
             self.new_frame_listener( mocap_data.get_data_dict() )
         trace_mf( "MoCap Frame End\n-----------------" )
         return offset, mocap_data
-
 
     # Unpack a marker set description packet
     def __unpack_marker_set_description( self, data, major, minor):
@@ -1075,7 +1068,6 @@ class NatNetClient:
         camera_desc=DataDescriptions.CameraDescription(name, position, orientation)
         return offset, camera_desc
 
-
     # Unpack a data description packet
     def __unpack_data_descriptions( self, data : bytes, packet_size, major, minor):
         data_descs = DataDescriptions.DataDescriptions()
@@ -1181,7 +1173,6 @@ class NatNetClient:
             , str(self.__server_version[2]), " "
                 , str(self.__server_version[3]) )
         return offset
-
 
     def __command_thread_function( self, in_socket, stop, gprint_level):
         message_id_dict={}
@@ -1417,7 +1408,6 @@ class NatNetClient:
 
     def get_server_version(self):
         return self.__server_version
-
 
 
     def run( self ):

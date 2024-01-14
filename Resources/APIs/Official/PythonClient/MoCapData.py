@@ -66,7 +66,6 @@ def test_hash(test_name, test_hash_str, test_object):
         ret_value=False
     return ret_value
 
-
 def test_hash2(test_name, test_hash_str, test_object, run_test=True):
     ret_value = K_FAIL
     out_str = "FAIL"
@@ -99,7 +98,6 @@ def test_hash2(test_name, test_hash_str, test_object, run_test=True):
     if len(out_str2):
         print("%s"%out_str2)
     return ret_value
-
 
 def get_as_string(input_str):
     type_input_str=str(type(input_str))
@@ -141,7 +139,6 @@ class MarkerData:
     def add_pos(self, pos):
         self.marker_pos_list.append(copy.deepcopy(pos))
         return len(self.marker_pos_list)
-
 
     def get_num_points(self):
         return len(self.marker_pos_list)
@@ -238,7 +235,6 @@ class RigidBodyMarker:
         out_str += "%sSize    : %3.1d\n"%(out_tab_str, self.size)
         return out_str
 
-
 class RigidBody:
     def __init__(self, new_id, pos, rot):
         self.id_num = new_id
@@ -299,16 +295,13 @@ class RigidBody:
 
         return out_str
 
-
 class RigidBodyData:
     def __init__(self):
         self.rigid_body_list=[]
 
-
     def add_rigid_body(self, rigid_body):
         self.rigid_body_list.append(copy.deepcopy(rigid_body))
         return len(self.rigid_body_list)
-
 
     def get_rigid_body_count(self):
         return len(self.rigid_body_list)
@@ -335,7 +328,6 @@ class Skeleton:
         self.id_num=new_id
         self.rigid_body_list=[]
 
-
     def add_rigid_body(self, rigid_body):
         self.rigid_body_list.append(copy.deepcopy(rigid_body))
         return len(self.rigid_body_list)
@@ -361,15 +353,12 @@ class Skeleton:
             out_str += self.rigid_body_list[rb_num].get_as_string(tab_str, level+2)
         return out_str
 
-
 class SkeletonData:
     def __init__(self):
         self.skeleton_list=[]
 
-
     def add_skeleton(self, new_skeleton):
         self.skeleton_list.append(copy.deepcopy(new_skeleton))
-
 
     def get_skeleton_count(self):
         return len(self.skeleton_list)
@@ -403,7 +392,6 @@ class LabeledMarker:
         self.residual = residual
         if str(type(size)) == "<class 'tuple'>":
             self.size=size[0]
-
 
     def __decode_marker_id(self):
         model_id = self.id_num >> 16
@@ -442,7 +430,6 @@ class LabeledMarker:
 
         return out_str
 
-
 class LabeledMarkerData:
     def __init__(self):
         self.labeled_marker_list=[]
@@ -479,7 +466,6 @@ class ForcePlateChannelData:
     def __init__(self):
         # list of floats
         self.frame_list=[]
-
 
     def add_frame_entry(self, frame_entry):
         self.frame_list.append(copy.deepcopy(frame_entry))
@@ -546,7 +532,6 @@ class ForcePlateData:
         self.force_plate_list.append(copy.deepcopy(force_plate))
         return len(self.force_plate_list)
 
-
     def get_force_plate_count(self):
         return len(self.force_plate_list)
 
@@ -575,7 +560,6 @@ class DeviceChannelData:
     def __init__(self):
         # list of floats
         self.frame_list=[]
-
 
     def add_frame_entry(self, frame_entry):
         self.frame_list.append(copy.deepcopy(frame_entry))
@@ -606,7 +590,6 @@ class DeviceChannelData:
         out_str += "\n"
         return out_str
 
-
 class Device:
     def __init__(self, new_id):
         self.id_num=new_id
@@ -636,7 +619,6 @@ class Device:
 
         return out_str
 
-
 class DeviceData:
     def __init__(self):
         self.device_list=[]
@@ -644,7 +626,6 @@ class DeviceData:
     def add_device(self, device):
         self.device_list.append(copy.deepcopy(device))
         return len(self.device_list)
-
 
     def get_device_count(self):
         return len(self.device_list)
@@ -803,7 +784,6 @@ class MoCapData:
         return out_str
 
 
-
 # test program
 
 def generate_prefix_data(frame_num = 0):
@@ -833,7 +813,6 @@ def generate_marker_data(label_base, label_num, num_points=1):
 
     return marker_data
 
-
 def generate_marker_set_data(frame_num = 0, marker_set_num=0):
     marker_set_data=MarkerSetData()
     #add labeled markers
@@ -859,6 +838,7 @@ def generate_rigid_body_marker_srand(marker_num=0, frame_num = 0):
     rigid_body_marker.error=random.random()
 
     return rigid_body_marker
+
 def generate_rigid_body(body_num=0, frame_num = 0):
     pos=generate_position_srand(10000+body_num, frame_num)
     rot = [1,0,0,0]
@@ -906,7 +886,6 @@ def generate_labeled_marker(frame_num=0, marker_num=0):
     residual = 0.01
     return LabeledMarker(marker_num, pos, size, param,residual)
 
-
 def generate_labeled_marker_data(frame_num = 0):
     labeled_marker_data = LabeledMarkerData()
     #add labeled marker
@@ -924,14 +903,12 @@ def generate_fp_channel_data(frame_num=0,fp_num=0, channel_num=0, num_frames =1)
         fp_channel_data.add_frame_entry(100.0*random.random())
     return fp_channel_data
 
-
 def generate_force_plate(frame_num=0, fp_num = 0, num_channels=1):
     force_plate = ForcePlate(fp_num)
     #add channel_data
     for i in range(num_channels):
         force_plate.add_channel_data(generate_fp_channel_data(frame_num,fp_num, i, 10))
     return force_plate
-
 
 def generate_force_plate_data(frame_num = 0):
     force_plate_data = ForcePlateData()
@@ -948,7 +925,6 @@ def generate_device_channel_data(frame_num=0,device_num=0, channel_num=0, num_fr
     for _ in range(num_frames):
         device_channel_data.add_frame_entry(100.0*random.random())
     return device_channel_data
-
 
 def generate_device(frame_num=0, device_num=0):
     device = Device(device_num)
@@ -972,7 +948,6 @@ def generate_suffix_data(frame_num = 0):
     frame_suffix_data.timecode_sub = 0
     frame_suffix_data.timestamp = 762.63
     return frame_suffix_data
-
 
 def generate_mocap_data(frame_num=0):
     mocap_data=MoCapData()

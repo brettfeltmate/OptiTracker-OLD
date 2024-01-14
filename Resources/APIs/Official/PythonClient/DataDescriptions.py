@@ -49,8 +49,6 @@ def add_lists(totals, totals_tmp):
     totals[2]+=totals_tmp[2]
     return totals
 
-
-
 def test_hash(test_name, test_hash_str, test_object):
     out_str = test_object.get_as_string()
     out_hash_str=hashlib.sha1(out_str.encode()).hexdigest()
@@ -98,14 +96,11 @@ def test_hash2(test_name, test_hash_str, test_object, run_test=True):
         print("%s"%out_str2)
     return ret_value
 
-
-
 def get_as_string(input_str):
     if type(input_str) == str:
         return input_str
     else:
         return input_str.decode('utf-8')
-
 
 def get_data_sub_packet_type(new_data):
     out_string=""
@@ -172,7 +167,6 @@ class RBMarker:
             (out_tab_str, self.active_label, self.pos[0],self.pos[1],self.pos[2],self.marker_name )
         return out_string
 
-
 class RigidBodyDescription:
     def __init__(self,sz_name="", new_id=0, parent_id=0,pos=[0.0,0.0,0.0]):
         self.sz_name=sz_name
@@ -230,8 +224,6 @@ class RigidBodyDescription:
             out_string += "%s%i %s"%(out_tab_str2,i,self.rb_marker_list[i].get_as_string(tab_str,0))
         return out_string
 
-
-
 class SkeletonDescription:
     def __init__(self, name="", new_id=0):
         self.name = name
@@ -273,7 +265,6 @@ class SkeletonDescription:
             out_string += "%sRigid Body (Bone) %d\n"%(out_tab_str2, i)
             out_string += self.rigid_body_description_list[i].get_as_string(tab_str,level+2)
         return out_string
-
 
 class ForcePlateDescription:
     def __init__(self, new_id=0, serial_number=""):
@@ -435,7 +426,6 @@ class CameraDescription:
             self.orientation[0], self.orientation[1],\
             self.orientation[2], self.orientation[3] )
         return out_string
-
 
 
 # cDataDescriptions
@@ -615,7 +605,6 @@ class DataDescriptions():
 
         return desc_dict
 
-
 # cDataDescriptions END
 
 def generate_marker_set_description(set_num=0):
@@ -691,7 +680,6 @@ def generate_force_plate_description(force_plate_num=0):
         fp_desc.add_channel_name("channel_%3.3d"%i)
     return fp_desc
 
-
 def generate_device_description(dev_num=0):
     """generate_device_description- Generate Test DeviceDescription Data"""
     new_id=0
@@ -704,13 +692,11 @@ def generate_device_description(dev_num=0):
         dev_desc.add_channel_name("channel_name_%2.2d"%i)
     return dev_desc
 
-
 def generate_camera_description(cam_num=0):
     """generate_camera_description - Generate Test CameraDescription data"""
     pos_vec3=[1,2,3]
     orientation_quat=[1,2,3,4]
     return CameraDescription("Camera_%3.3d"%cam_num, pos_vec3, orientation_quat)
-
 
 #generate_data_descriptions - Generate Test DataDescriptions
 def generate_data_descriptions(data_desc_num=0):
@@ -740,7 +726,6 @@ def generate_data_descriptions(data_desc_num=0):
     data_descs.add_camera(generate_camera_description(data_desc_num+3))
     data_descs.add_camera(generate_camera_description(data_desc_num+7))
     return data_descs
-
 
 # test_all - Test all the major classes
 def test_all(run_test=True):
@@ -776,8 +761,6 @@ def test_all(run_test=True):
     print("[SKIP] Count = %3.1d"%totals[2])
 
     return totals
-
-
 
 #
 if __name__ == "__main__":

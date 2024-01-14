@@ -1,5 +1,6 @@
 {
     "python.analysis.extraPaths": [
         "./Resources/Motive"
-    ]
+    ],
+    "workbench.colorTheme": "Bear Theme"
 }

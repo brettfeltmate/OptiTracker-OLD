@@ -27,6 +27,8 @@ import hashlib
 import random
 
 from collections import namedtuple, OrderedDict
+from numpy import array, frombuffer, zeros
+from numpy import float32, float64, int32, int64, uint32, uint64, bool_
 
 rbMarker = namedtuple("RBMarker", ['id', 'name', 'pos', 'orientation'])
 Pos = namedtuple("Pos", ['x', 'y', 'z'])
@@ -114,18 +116,35 @@ def get_as_string(input_str):
 
 #MoCap Frame Classes
 class FramePrefixData:
-    def __init__(self, frame_number):
-        self.frame_number=frame_number
+    def __init__(self, motive_version = None) -> None:
+        self._motive_version = motive_version
+        self._dtype = self._set_dtype(motive_version=motive_version)
+        self.data = array([], dtype=self._dtype)
 
-    def get_data_dict(self):
-        data = OrderedDict()
-        data['frame_number'] = self.frame_number
+    # Set the dtype based on the motive version  
+    def _set_dtype(self, motive_version = None):
+        # As of 2024 structure of prefix data unchanged
+        if motive_version:
+            pass
 
-        return data
+        self._dtype = [('frame_number', int32)]
+
+    # Return the expected packet size
+    # Ideally, 
+    def expected_packet_size(self):
+        return self._dtype.itemsize
+
+    def parse(self, data):
+        if len(data) != self._dtype.itemsize:
+            raise ValueError(
+                "Unexpected data size: \texpected %d, \trecieved %d"%(
+                self._dtype.itemsize,len(data)))
+
+        self.data = frombuffer(data, dtype=self._dtype)
 
     def get_as_string(self,tab_str="  ", level = 0):
         out_tab_str = get_tab_str(tab_str, level)
-        out_str = "%sFrame #: %3.1d\n"%(out_tab_str,self.frame_number)
+        out_str = "%sFrame #: %3.1d\n"%(out_tab_str,self.data[0]['frame_number'])
         return out_str
 
 class MarkerData:
@@ -210,6 +229,7 @@ class MarkerSetData:
         out_str += self.unlabeled_markers.get_as_string(tab_str,level+1)
         return out_str
 
+# Not used for versions >= 3.0
 class RigidBodyMarker:
     def __init__(self):
         self.pos = [0.0,0.0,0.0]
@@ -236,17 +256,56 @@ class RigidBodyMarker:
         return out_str
 
 class RigidBody:
-    def __init__(self, new_id, pos, rot):
-        self.id_num = new_id
-        self.pos=pos
-        self.rot=rot
-        self.rb_marker_list=[]
-        self.tracking_valid = False
-        self.error = 0.0
+    def __init__(self, motive_version = None) -> None:  
+        self._motive_version = motive_version
+        self._dtype = self._set_dtype(motive_version=motive_version)
+        self.data = array([], dtype=self._dtype)
 
+        # self.id_num = new_id
+        # self.pos=pos
+        # self.rot=rot
+        # self.rb_marker_list=[]
+        # self.tracking_valid = False
+        # self.error = 0.0
+
+    # Not used for versions >= 3.0
     def add_rigid_body_marker(self, rigid_body_marker):
         self.rb_marker_list.append(copy.deepcopy(rigid_body_marker))
         return len(self.rb_marker_list)
+
+    # Set the dtype based on the motive version
+    def _set_dtype(self, motive_version = None):
+        if motive_version:
+            pass
+
+        # TODO: add element names to pos and rot
+        self._dtype = [
+            ('id_num', int32),
+            ('pos', float32, 3),
+            ('rot', float32, 4),
+            ('tracking_valid', int32),
+            ('error', float32)
+        ]
+
+    def expected_packet_size(self):
+        # TODO: make less hacky
+        # tracking_valid originally 2 bytes, but gets coverted to 4 byte int
+        # This is a hack to get the expected packet size to match
+        return self._dtype.itemsize - 2
+    
+    def parse(self, data):
+        if len(data) != self._dtype.itemsize:
+            raise ValueError(
+                "Unexpected data size: \texpected %d, \trecieved %d"%(
+                self._dtype.itemsize,len(data)))
+        # TODO: add element names to pos and rot
+        # parse stream data into numpy array
+        self.data = frombuffer(data, dtype=self._dtype)
+        # Use bit comparison to determine if tracking is valid
+        self.data['tracking_valid'] = (self.data['tracking_valid'] & 0x01) != 0
+
+    
+
 
     def get_data_dict(self):
         data = OrderedDict()
@@ -685,30 +744,39 @@ class FrameSuffixData:
         return out_str
 
 class MoCapData:
-    def __init__(self):
-        #Packet Parts
-        self.prefix_data = None
-        self.marker_set_data = None
-        self.rigid_body_data = None
-        self.skeleton_data = None
-        self.labeled_marker_data = None
-        self.force_plate_data = None
-        self.device_data = None
-        self.suffix_data = None
+    def __init__(self, motive_version = None) -> None:
 
-    # export data for all attributes as a dictionary
-    def get_data_dict(self):
-        data = OrderedDict()
-        data['prefix_data'] = self.prefix_data.get_data_dict()
-        data['marker_set_data'] = self.marker_set_data.get_data_dict()
-        data['rigid_body_data'] = self.rigid_body_data.get_data_dict()
-        data['skeleton_data'] = self.skeleton_data.get_data_dict()
-        data['labeled_marker_data'] = self.labeled_marker_data.get_data_dict()
-        data['force_plate_data'] = self.force_plate_data.get_data_dict()
-        data['device_data'] = self.device_data.get_data_dict()
-        data['suffix_data'] = self.suffix_data.get_data_dict()
+        if motive_version == None:
+            raise ValueError("motive_version must be specified to correctly parse data packets")
+        
+        self._motive_version = motive_version
+        
+        # Initialize all asset data to None
+        self._asset_data = OrderedDict({
+            'prefix': FramePrefixData(),
+            'marker_set': None,
+            'rigid_body': None,
+            'skeleton': None,
+            'labeled_marker': None,
+            'force_plate': None,
+            'device': None,
+            'suffix': None
+        })
 
-        return data
+    # parse data from a packet
+    def parse_asset(self, data, asset_type) -> None:
+
+        if asset_type not in self._asset_data.keys():
+            raise ValueError("Unexpected asset_type specified: %s"%asset_type)
+        
+        self._asset_data[asset_type].parse_data(data, self._motive_version)
+    
+    # Return asset data
+    def asset_data(self, asset_type = None) -> OrderedDict:
+        if asset_type:
+            return self._asset_data[asset_type]
+        else:
+            return self._asset_data
 
     def set_prefix_data(self, new_prefix_data):
         self.prefix_data = new_prefix_data

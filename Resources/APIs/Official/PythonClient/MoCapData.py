@@ -27,8 +27,8 @@ import hashlib
 import random
 
 from collections import namedtuple, OrderedDict
-from numpy import array, frombuffer, zeros
-from numpy import float32, float64, int32, int64, uint32, uint64, bool_
+from numpy import array, frombuffer
+from numpy import float32, int16, int32
 
 rbMarker = namedtuple("RBMarker", ['id', 'name', 'pos', 'orientation'])
 Pos = namedtuple("Pos", ['x', 'y', 'z'])
@@ -116,31 +116,27 @@ def get_as_string(input_str):
 
 #MoCap Frame Classes
 class FramePrefixData:
-    def __init__(self, motive_version = None) -> None:
-        self._motive_version = motive_version
-        self._dtype = self._set_dtype(motive_version=motive_version)
-        self.data = array([], dtype=self._dtype)
+    def __init__(self) -> None:
+        self.data = array([])
 
-    # Set the dtype based on the motive version  
-    def _set_dtype(self, motive_version = None):
+    # Get dtype based on the motive version  
+    def _dtype(self, motive_version = None):
         # As of 2024 structure of prefix data unchanged
         if motive_version:
             pass
 
-        self._dtype = [('frame_number', int32)]
+        dtype = [('frame_number', int32)]
+        return dtype
 
-    # Return the expected packet size
-    # Ideally, 
-    def expected_packet_size(self):
-        return self._dtype.itemsize
+    def parse(self, data, motive_version = None):
+        dtype = self._dtype(motive_version=motive_version)
 
-    def parse(self, data):
-        if len(data) != self._dtype.itemsize:
+        if len(data) != dtype.itemsize:
             raise ValueError(
                 "Unexpected data size: \texpected %d, \trecieved %d"%(
-                self._dtype.itemsize,len(data)))
+                dtype.itemsize, len(data)))
 
-        self.data = frombuffer(data, dtype=self._dtype)
+        self.data = frombuffer(data, dtype=dtype)
 
     def get_as_string(self,tab_str="  ", level = 0):
         out_tab_str = get_tab_str(tab_str, level)
@@ -256,10 +252,9 @@ class RigidBodyMarker:
         return out_str
 
 class RigidBody:
-    def __init__(self, motive_version = None) -> None:  
-        self._motive_version = motive_version
-        self._dtype = self._set_dtype(motive_version=motive_version)
-        self.data = array([], dtype=self._dtype)
+    def __init__(self) -> None:  
+        self.data = array([])
+        self.rb_marker_list=[]
 
         # self.id_num = new_id
         # self.pos=pos
@@ -274,33 +269,29 @@ class RigidBody:
         return len(self.rb_marker_list)
 
     # Set the dtype based on the motive version
-    def _set_dtype(self, motive_version = None):
+    def _dtype(self, motive_version = None):
         if motive_version:
             pass
 
-        # TODO: add element names to pos and rot
-        self._dtype = [
+
+        dtype = [
             ('id_num', int32),
-            ('pos', float32, 3),
-            ('rot', float32, 4),
-            ('tracking_valid', int32),
+            ('pos', [('x', float32), ('y', float32), ('z', float32)]),
+            ('rot', [('w', float32), ('x', float32), ('y', float32), ('z', float32)]),
+            ('tracking_valid', int16),
             ('error', float32)
         ]
 
-    def expected_packet_size(self):
-        # TODO: make less hacky
-        # tracking_valid originally 2 bytes, but gets coverted to 4 byte int
-        # This is a hack to get the expected packet size to match
-        return self._dtype.itemsize - 2
+        return dtype
     
-    def parse(self, data):
-        if len(data) != self._dtype.itemsize:
+    def parse(self, data, motive_version = None):
+        dtype = self._dtype(motive_version=motive_version)
+        if len(data) != dtype.itemsize:
             raise ValueError(
-                "Unexpected data size: \texpected %d, \trecieved %d"%(
-                self._dtype.itemsize,len(data)))
+                "RigidBody.parse() | Incorrect packet size: expected %d, recieved %d"%(dtype.itemsize,len(data)))
         # TODO: add element names to pos and rot
         # parse stream data into numpy array
-        self.data = frombuffer(data, dtype=self._dtype)
+        self.data = frombuffer(data, dtype=dtype)
         # Use bit comparison to determine if tracking is valid
         self.data['tracking_valid'] = (self.data['tracking_valid'] & 0x01) != 0
 
@@ -416,7 +407,9 @@ class SkeletonData:
     def __init__(self):
         self.skeleton_list=[]
 
-    def add_skeleton(self, new_skeleton):
+    def add_skeleton(self, data, count):
+        
+
         self.skeleton_list.append(copy.deepcopy(new_skeleton))
 
     def get_skeleton_count(self):
@@ -443,24 +436,79 @@ class SkeletonData:
         return out_str
 
 class LabeledMarker:
-    def __init__(self, new_id, pos, size=0.0, param = 0, residual=0.0):
-        self.id_num=new_id
-        self.pos = pos
-        self.size = size
-        self.param = param
-        self.residual = residual
-        if str(type(size)) == "<class 'tuple'>":
-            self.size=size[0]
+    def __init__(self) -> None:
+        self.data = array([])
 
-    def __decode_marker_id(self):
-        model_id = self.id_num >> 16
-        marker_id = self.id_num & 0x0000ffff
+        # self.id_num=new_id
+        # self.pos = pos
+        # self.size = size
+        # self.param = param
+        # self.residual = residual
+        # if str(type(size)) == "<class 'tuple'>":
+        #     self.size=size[0]
+
+    # Set the dtype based on the motive version
+    def _dtype(self, motive_version = None):
+        # TODO: account for motive version
+        if motive_version:
+            pass
+
+        dtype_in = [            
+            ('id_num', int32),
+            ('pos', [('x', float32), ('y', float32), ('z', float32)]),
+            ('size', float32),
+            ('param', int16),
+            ('residual', float32)
+        ]
+
+        dtype_out = [
+            ('model_id', int32),
+            ('marker_id', int32),
+            ('pos', [('x', float32), ('y', float32), ('z', float32)]),
+            ('size', float32),
+            ('occluded', int16),
+            ('point_cloud_solved', int16),
+            ('model_solved', int16),
+            ('residual', float32)
+        ]
+
+        return dtype_in, dtype_out
+    
+    def parse(self, data, motive_version = None):
+        dtype_in, dtype_out = self._dtype(motive_version=motive_version)
+        # Structure data array
+        self.data = self.data.view(dtype=dtype_out)
+
+        expected = dtype_in.itemsize
+        received = len(data)
+        if received != expected:
+            raise ValueError(
+                "\nLabeledMarker.parse() | Unexpected packet size" +\
+                "\n\tExpected: %d bytes, \n\tReceived: %d bytes"%(
+                expected, received))
+        
+        # parse stream data into temporary numpy array
+        tmp_data = frombuffer(data, dtype=dtype_in)
+
+        # parse data into output numpy array
+        self.data['pos'] = tmp_data['pos']
+        self.data['size'] = tmp_data['size']
+        self.data['residual'] = tmp_data['residual']
+
+        # Decode id_num into model_id and marker_id
+        self.data['model_id'], self.data['marker_id'] = self.__decode_marker_id(tmp_data['id_num'])
+        # Decode param into occluded, point_cloud_solved, and model_solved
+        self.data['occluded'], self.data['point_cloud_solved'], self.data['model_solved'] = self.__decode_param(tmp_data['param'])
+
+    def __decode_marker_id(self, id_num):
+        model_id = id_num >> 16
+        marker_id = id_num & 0x0000ffff
         return model_id, marker_id
 
-    def __decode_param(self):
-        occluded = ( self.param & 0x01 ) != 0
-        point_cloud_solved = ( self.param & 0x02 ) != 0
-        model_solved = ( self.param & 0x04 ) != 0
+    def __decode_param(self, param):
+        occluded = ( param & 0x01 ) != 0
+        point_cloud_solved = ( param & 0x02 ) != 0
+        model_solved = ( param & 0x04 ) != 0
         return occluded,point_cloud_solved, model_solved
     
     def get_data_dict(self):
@@ -746,13 +794,10 @@ class FrameSuffixData:
 class MoCapData:
     def __init__(self, motive_version = None) -> None:
 
-        if motive_version == None:
-            raise ValueError("motive_version must be specified to correctly parse data packets")
-        
         self._motive_version = motive_version
         
         # Initialize all asset data to None
-        self._asset_data = OrderedDict({
+        self._assets = {
             'prefix': FramePrefixData(),
             'marker_set': None,
             'rigid_body': None,
@@ -761,20 +806,22 @@ class MoCapData:
             'force_plate': None,
             'device': None,
             'suffix': None
-        })
+        }
 
     # parse data from a packet
-    def parse_asset(self, data, asset_type) -> None:
+    def parse_asset_data(self, data, asset_type) -> None:
 
-        if asset_type not in self._asset_data.keys():
-            raise ValueError("Unexpected asset_type specified: %s"%asset_type)
+        if asset_type not in self._assets.keys():
+            raise ValueError("MoCapData.parse_asset() | Unexpected asset_type: %s"%asset_type)
         
-        self._asset_data[asset_type].parse_data(data, self._motive_version)
+        self._assets[asset_type].parse_data(data, self._motive_version)
     
     # Return asset data
-    def asset_data(self, asset_type = None) -> OrderedDict:
+    def export_asset_data(self, asset_type = None):
         if asset_type:
-            return self._asset_data[asset_type]
+            return self._asset_data[asset_type].data
+        
+        # TODO: bundle asset data, but how to handle lists???
         else:
             return self._asset_data
 

@@ -2,5 +2,5 @@
     "python.analysis.extraPaths": [
         "./Resources/Motive"
     ],
-    "workbench.colorTheme": "Bear Theme"
+    "workbench.colorTheme": "Gruvbox Material Dark"
 }

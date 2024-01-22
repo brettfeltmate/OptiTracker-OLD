@@ -431,11 +431,11 @@ class NatNetClient:
         frame_number = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
         trace_mf( "Frame #:", frame_number )
-        frame_prefix_data=MoCapData.FramePrefixData(frame_number)
+        frame_prefix_data=MoCapData.FramePrefix(frame_number)
         return offset, frame_prefix_data
 
     def __unpack_marker_set_data( self, data, packet_size, major, minor):
-        marker_set_data=MoCapData.MarkerSetData()
+        marker_set_data=MoCapData.MarkerSets()
         offset = 0
         # Marker set count (4 bytes)
         marker_set_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
@@ -443,7 +443,7 @@ class NatNetClient:
         trace_mf( "Marker Set Count:", marker_set_count )
 
         for i in range( 0, marker_set_count ):
-            marker_data = MoCapData.MarkerData()
+            marker_data = MoCapData.MarkerSet()
             # Model name
             model_name, separator, remainder = bytes(data[offset:]).partition( b'\0' )
             offset += len( model_name ) + 1
@@ -474,7 +474,7 @@ class NatNetClient:
         return offset, marker_set_data
 
     def __unpack_rigid_body_data( self, data, packet_size, major, minor):
-        rigid_body_data = MoCapData.RigidBodyData()
+        rigid_body_data = MoCapData.RigidBodies()
         offset = 0
         # Rigid body count (4 bytes)
         rigid_body_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
@@ -489,8 +489,9 @@ class NatNetClient:
 
         return offset, rigid_body_data
 
+    # TODO: unnecessary, refactor as single unpack_skeleton function
     def __unpack_skeleton_data( self, data, packet_size, major, minor):
-        skeleton_data = MoCapData.SkeletonData()
+        skeleton_data = MoCapData.Skeletons()
 
         offset = 0
         # Version 2.1 and later
@@ -706,7 +707,7 @@ class NatNetClient:
 
     # Unpack data from a motion capture frame message
     def __unpack_mocap_data( self, data : bytes, packet_size, major, minor):
-        mocap_data = MoCapData.MoCapData()
+        mocap_frame = MoCapData.MoCapFrame()
         trace_mf( "MoCap Frame Begin\n-----------------" )
         data = memoryview( data )
         offset = 0
@@ -715,20 +716,20 @@ class NatNetClient:
         #Frame Prefix Data
         rel_offset, frame_prefix_data = self.__unpack_frame_prefix_data(data[offset:])
         offset += rel_offset
-        mocap_data.set_prefix_data(frame_prefix_data)
+        mocap_frame.set_prefix_data(frame_prefix_data)
         frame_number = frame_prefix_data.frame_number
 
         #Marker Set Data
         rel_offset, marker_set_data =self.__unpack_marker_set_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_data.set_marker_set_data(marker_set_data)
+        mocap_frame.set_marker_set_data(marker_set_data)
         marker_set_count = marker_set_data.get_marker_set_count()
         unlabeled_markers_count = marker_set_data.get_unlabeled_marker_count()
 
         # Rigid Body Data
         rel_offset, rigid_body_data = self.__unpack_rigid_body_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_data.set_rigid_body_data(rigid_body_data)
+        mocap_frame.set_rigid_body_data(rigid_body_data)
         rigid_body_count = rigid_body_data.get_rigid_body_count()
 
         # If listener provided, return rigid body frame data
@@ -738,7 +739,7 @@ class NatNetClient:
         # Skeleton Data
         rel_offset, skeleton_data = self.__unpack_skeleton_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_data.set_skeleton_data(skeleton_data)
+        mocap_frame.set_skeleton_data(skeleton_data)
         skeleton_count = skeleton_data.get_skeleton_count()
 
         # If listener provided, return skeleton frame data
@@ -748,24 +749,24 @@ class NatNetClient:
         # Labeled Marker Data
         rel_offset, labeled_marker_data = self.__unpack_labeled_marker_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_data.set_labeled_marker_data(labeled_marker_data)
+        mocap_frame.set_labeled_marker_data(labeled_marker_data)
         labeled_marker_count = labeled_marker_data.get_labeled_marker_count()
 
         # Force Plate Data
         rel_offset, force_plate_data = self.__unpack_force_plate_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_data.set_force_plate_data(force_plate_data)
+        mocap_frame.set_force_plate_data(force_plate_data)
 
         # Device Data
         rel_offset,device_data = self.__unpack_device_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_data.set_device_data(device_data)
+        mocap_frame.set_device_data(device_data)
 
         # Frame Suffix Data
         #rel_offset, timecode, timecode_sub, timestamp, is_recording, tracked_models_changed = \
         rel_offset, frame_suffix_data =   self.__unpack_frame_suffix_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_data.set_suffix_data(frame_suffix_data)
+        mocap_frame.set_suffix_data(frame_suffix_data)
 
 
         timecode = frame_suffix_data.timecode
@@ -788,9 +789,9 @@ class NatNetClient:
             # data_dict[ "skeleton_data"] = skeleton_data
             # data_dict[ "labeled_marker_data"] = labeled_marker_data
 
-            self.new_frame_listener( mocap_data.get_data_dict() )
+            self.new_frame_listener( mocap_frame.get_data_dict() )
         trace_mf( "MoCap Frame End\n-----------------" )
-        return offset, mocap_data
+        return offset, mocap_frame
 
     # Unpack a marker set description packet
     def __unpack_marker_set_description( self, data, major, minor):

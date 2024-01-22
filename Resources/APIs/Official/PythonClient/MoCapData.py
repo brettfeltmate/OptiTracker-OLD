@@ -25,14 +25,10 @@
 import copy
 import hashlib
 import random
+import warnings
 
-from collections import namedtuple, OrderedDict
-from numpy import array, frombuffer
-from numpy import float32, int16, int32
+import numpy as np
 
-rbMarker = namedtuple("RBMarker", ['id', 'name', 'pos', 'orientation'])
-Pos = namedtuple("Pos", ['x', 'y', 'z'])
-Quat = namedtuple("Quat", ['x', 'y', 'z', 'w'])
 
 
 K_SKIP = [0,0,1]
@@ -113,119 +109,132 @@ def get_as_string(input_str):
         print("type_input_str = %s NOT HANDLED"%type_input_str)
         return input_str
 
+# #
+# Asset Data Classes
+# # 
 
-#MoCap Frame Classes
-class FramePrefixData:
-    def __init__(self) -> None:
-        self.data = array([])
+# Simply logs frame number; seems overkill, might refactor out
+class FramePrefix:
+    def __init__(self, motive_version) -> None:
+        self.motive_version = motive_version
+        self.dtype = self._dtype()
+
+        self.__frame = np.array([], dtype=self.dtype)
 
     # Get dtype based on the motive version  
-    def _dtype(self, motive_version = None):
-        # As of 2024 structure of prefix data unchanged
-        if motive_version:
+    def _dtype(self):
+        if self.motive_version:
             pass
 
-        dtype = [('frame_number', int32)]
+        dtype = np.dtype([('frame_number', np.int32)])
+  
+        return dtype
+    
+    def bytesize(self) -> int:
+        return self.dtype.itemsize
+
+    def parse(self, data):
+        if len(data) != self.dtype.itemsize:
+            raise ValueError(
+                "FramePrefixData.parse() : Expected %d bytes, recieved %d."%(
+                self.dtype.itemsize, len(data)))
+        
+        self.__frame['frame_number'] = np.frombuffer(data, dtype=self.dtype)
+        
+    def frame(self):
+        if np.all(np.equal(self.__frame['frame_number'], 0)):
+            warnings.warn("FramePrefixData.export() : No data recorded.", Warning)
+        
+        return self.__frame
+
+# Short of fewer data params, hard to say this differs meaningfully from LabeledMarker
+class MarkerSet:
+    def __init__(self, motive_version, name, count, data = None) -> None:
+        self.motive_version = motive_version
+        self.name = name
+        self.count = count
+        self.dtype = self._dtype() # Note: marker_pos structure
+
+        self.__frame = np.array([
+            ("model", name),
+            ("markers", np.array([], dtype=self.dtype))
+        ])
+
+        if data:
+            self.parse(data)
+
+    def _dtype(self) -> np.dtype:
+        if self.motive_version:
+            pass
+        
+        # marker_count len array of positional tuples 
+        dtype = np.dtype([
+            ('pos', 
+             np.dtype([('x', np.float32), ('y', np.float32), ('z', np.float32)]), 
+            (self.count,))
+        ])
+
         return dtype
 
-    def parse(self, data, motive_version = None):
-        dtype = self._dtype(motive_version=motive_version)
+    def bytesize(self) -> int:
+        return self.dtype.itemsize * self.count
 
-        if len(data) != dtype.itemsize:
+    def parse(self, bytestream) -> None:
+        chunk_size = self.bytesize // self.count
+
+        if len(bytestream) != self.bytesize:
             raise ValueError(
-                "Unexpected data size: \texpected %d, \trecieved %d"%(
-                dtype.itemsize, len(data)))
+                "MarkerData.parse() : Expected %d bytes\n\t%d markers * %d bytes\nRecieved %d."%(
+                    self.bytesize, self.count, chunk_size, len(bytestream)))
 
-        self.data = frombuffer(data, dtype=dtype)
+        for i in range(self.count):
+            start = i*chunk_size
+            end = (i+1)*chunk_size
+            marker = np.frombuffer(bytestream[start:end], dtype=self.dtype)
+            self.__frame['markers']['pos'][i] = marker['pos']
 
-    def get_as_string(self,tab_str="  ", level = 0):
-        out_tab_str = get_tab_str(tab_str, level)
-        out_str = "%sFrame #: %3.1d\n"%(out_tab_str,self.data[0]['frame_number'])
-        return out_str
+    def frame(self) -> np.array:
+        if np.all(np.equal(self.__frame['marker_pos_list']['pos'], 0)):
+            warnings.warn("MarkerData.frame() : No markers positions recorded.", Warning)
+        
 
-class MarkerData:
-    def __init__(self):
-        self.model_name=""
-        self.marker_pos_list=[]
+        return self.__frame
 
-    def set_model_name(self, model_name):
-        self.model_name = model_name
+# For storing markerset belonging to models or otherwise unlabeled
+class MarkerSets:
+    def __init__(self, motive_version) -> None:
+        self.motive_version = motive_version
+        self.__frame = np.array([
+            ("labeled", np.array([], dtype=object)), 
+            ("unlabeled", np.array([], dtype=object))
+        ])
+        self.dtype = self.__frame.dtype
 
-    def add_pos(self, pos):
-        self.marker_pos_list.append(copy.deepcopy(pos))
-        return len(self.marker_pos_list)
-
-    def get_num_points(self):
-        return len(self.marker_pos_list)
-
-    def get_data_dict(self):
-        data = OrderedDict()
-        data['model_name'] = self.model_name
-        data['marker_pos_list'] = self.marker_pos_list
-
-        return data
-
-    def get_as_string(self, tab_str="  ", level=0):
-        out_tab_str = get_tab_str(tab_str, level)
-        out_tab_str2 = get_tab_str(tab_str, level+1)
-        out_str=""
-        if self.model_name != "":
-            out_str+="%sModel Name : %s\n"%(out_tab_str, get_as_string(self.model_name))
-        marker_count = len(self.marker_pos_list)
-        out_str+="%sMarker Count :%3.1d\n"%(out_tab_str, marker_count)
-        for i in range(marker_count):
-            pos = self.marker_pos_list[i]
-            out_str+="%sMarker %3.1d pos : [%3.2f,%3.2f,%3.2f]\n"%(out_tab_str2,i,pos[0], pos[1], pos[2])
-        return out_str
-
-class MarkerSetData:
-    def __init__(self):
-        self.marker_data_list=[]
-        self.unlabeled_markers=MarkerData()
-        self.unlabeled_markers.set_model_name("")
-
-    def add_marker_data(self, marker_data):
-        self.marker_data_list.append(copy.deepcopy(marker_data))
-        return len(self.marker_data_list)
-
-    def add_unlabeled_marker(self, pos):
-        self.unlabeled_markers.add_pos(pos)
-
-    def get_marker_set_count(self):
-        return len(self.marker_data_list)
-
-    def get_unlabeled_marker_count(self):
-        return self.unlabeled_markers.get_num_points()
+    def bytesize(self, count) -> int:
+        dummy = MarkerSet(self.motive_version, "dummy", count)
+        return dummy.bytesize
     
-    def get_data_dict(self):
-        data = OrderedDict()
-        for i in range(len(self.marker_data_list)):
-            marker_data = self.marker_data_list[i]
-            data['marker_data_%d'%i] = marker_data.get_data_dict()
+    def parse(self, count, data, label = None) -> None:
+        model = label if label is not None else "unlabeled"
+        markers = MarkerSet(self.motive_version, model, count)
+        markers.parse(data)
 
-        data['unlabeled_markers'] = self.unlabeled_markers.get_data_dict()
+        if model == "unlabeled":
+            self.__frame['unlabeled'] = np.append(self.__frame['unlabeled'], markers.frame())
 
-        return data
+        else:
+            self.__frame['labeled'] = np.append(self.__frame['labeled'], markers.frame())
 
-    def get_as_string(self, tab_str="  ", level=0):
-        out_tab_str  = get_tab_str(tab_str, level)
+    def frame(self) -> np.array:
+        if np.all(np.equal(self.__frame['labeled'], 0)):
+            warnings.warn("MarkerSetData.frame() : No labeled markers recorded.", Warning)
+        
+        if np.all(np.equal(self.__frame['unlabeled'], 0)):
+            warnings.warn("MarkerSetData.frame() : No unlabeled markers recorded.", Warning)
+        
+        return self.__frame
 
-
-        out_str=""
-
-        # Labeled markers count
-        marker_data_count = len(self.marker_data_list)
-        out_str+= "%sMarker Set Count:%3.1d\n"% (out_tab_str,marker_data_count)
-        for marker_data in self.marker_data_list:
-            out_str += marker_data.get_as_string(tab_str,level+1)
-
-        # Unlabeled markers count (4 bytes)
-        unlabeled_markers_count = self.unlabeled_markers.get_num_points()
-        out_str += "%sUnlabeled Markers Count:%3.1d\n"%(out_tab_str, unlabeled_markers_count )
-        out_str += self.unlabeled_markers.get_as_string(tab_str,level+1)
-        return out_str
-
-# Not used for versions >= 3.0
+# Not used for versions >= 3.0; add support anyway
 class RigidBodyMarker:
     def __init__(self):
         self.pos = [0.0,0.0,0.0]
@@ -251,235 +260,189 @@ class RigidBodyMarker:
         out_str += "%sSize    : %3.1d\n"%(out_tab_str, self.size)
         return out_str
 
+# Each element in RigidBodies is of this class
 class RigidBody:
-    def __init__(self) -> None:  
-        self.data = array([])
-        self.rb_marker_list=[]
+    def __init__(self, motive_version, data=None) -> None:
+        self.motive_version = motive_version
+        self.dtype = self._dtype()
+        self.__frame = np.array([], dtype=self.dtype)
 
-        # self.id_num = new_id
-        # self.pos=pos
-        # self.rot=rot
-        # self.rb_marker_list=[]
-        # self.tracking_valid = False
-        # self.error = 0.0
-
-    # Not used for versions >= 3.0
-    def add_rigid_body_marker(self, rigid_body_marker):
-        self.rb_marker_list.append(copy.deepcopy(rigid_body_marker))
-        return len(self.rb_marker_list)
+        if data:
+            self.parse(data)
 
     # Set the dtype based on the motive version
-    def _dtype(self, motive_version = None):
-        if motive_version:
+    def _dtype(self) -> np.dtype:
+        if self.motive_version:
             pass
 
-
         dtype = [
-            ('id_num', int32),
-            ('pos', [('x', float32), ('y', float32), ('z', float32)]),
-            ('rot', [('w', float32), ('x', float32), ('y', float32), ('z', float32)]),
-            ('tracking_valid', int16),
-            ('error', float32)
-        ]
+            ('id_num', np.int32),
+            ('pos', [('x', np.float32), ('y', np.float32), ('z', np.float32)]),
+            ('rot', [('w', np.float32), ('x', np.float32), ('y', np.float32), ('z', np.float32)]),
+            ('tracking_valid', np.int16),
+            ('error', np.float32)
+        ] 
+
 
         return dtype
     
-    def parse(self, data, motive_version = None):
-        dtype = self._dtype(motive_version=motive_version)
-        if len(data) != dtype.itemsize:
+    def bytesize(self) -> int:
+        return self.dtype.itemsize
+
+    def parse(self, data) -> None:
+        if len(data) != self.dtype.itemsize:
             raise ValueError(
-                "RigidBody.parse() | Incorrect packet size: expected %d, recieved %d"%(dtype.itemsize,len(data)))
-        # TODO: add element names to pos and rot
-        # parse stream data into numpy array
-        self.data = frombuffer(data, dtype=dtype)
-        # Use bit comparison to determine if tracking is valid
-        self.data['tracking_valid'] = (self.data['tracking_valid'] & 0x01) != 0
+                "RigidBody.parse() : Expected %d bytes, recieved %d"%(
+                    self.dtype.itemsize,len(data)))
+        
+        self.__frame = np.frombuffer(data, dtype=self.dtype)
+        
+        # Tracking validity communicated by least significant bit
+        self.__frame['tracking_valid'] = (self.__frame['tracking_valid'] & 0x01) != 0
 
-    
+    def frame(self) -> np.array:
+        if self.__frame['id_num'] == None:
+            warnings.warn("RigidBody.frame() : ID not recorded.", Warning)
+        
+        if self.__frame['pos'] == None:
+            warnings.warn("RigidBody.frame() : position not recorded.", Warning)
+        
+        if self.__frame['rot'] == None:
+            warnings.warn("RigidBody.frame() : rotation not recorded.", Warning)
+        
+        if self.__frame['error'] == None:
+            warnings.warn("RigidBody.frame() : error not recorded.", Warning)
+        
+        if self.__frame['tracking_valid'] == None:
+            warnings.warn("RigidBody.frame() : tracking validity not recorded.", Warning)
 
+        return self.__frame
 
-    def get_data_dict(self):
-        data = OrderedDict()
-        data['id_num'] = self.id_num
-        data['pos'] = Pos(self.pos[0],self.pos[1],self.pos[2])
-        data['rot'] = Quat(self.rot[0],self.rot[1],self.rot[2],self.rot[3])
-        data['tracking_valid'] = self.tracking_valid
-        data['error'] = self.error
+# Each element in Skeletons is of this class; also used for single rigid bodies (i.e., objects)
+class RigidBodies:
+    def __init__(self, motive_version, rb_count, data = None) -> None:
+        self.motive_version = motive_version
+        self.count = rb_count
 
-        for i in range(len(self.rb_marker_list)):
-            rbmarker = self.rb_marker_list[i]
-            data['rb_marker_%d'%i] = rbmarker.get_data_dict()
+        self.__frame = np.array([('rigid_bodies', np.array([], dtype=object))])
+        self.dtype = self.__frame.dtype
 
-        return data
+        if data:
+            self.parse(data)
 
-    def get_as_string(self, tab_str=0, level=0):
-        out_tab_str = get_tab_str(tab_str, level)
-        out_tab_str2 = get_tab_str(tab_str, level+1)
+    def bytesize(self, count) -> int:
+        dummy = RigidBody(self.motive_version)
+        return dummy.bytesize * count
 
-        out_str=""
-
-        # header
-        out_str += "%sID            : %3.1d\n"% (out_tab_str, self.id_num)
-        # Position and orientation
-        out_str += "%sPosition      : [%3.2f, %3.2f, %3.2f]\n"% (out_tab_str, self.pos[0], self.pos[1], self.pos[2] )
-        out_str += "%sOrientation   : [%3.2f, %3.2f, %3.2f, %3.2f]\n"% (out_tab_str, self.rot[0], self.rot[1], self.rot[2], self.rot[3] )
-
-        marker_count = len(self.rb_marker_list)
-        marker_count_range = range( 0, marker_count )
-
-        # Marker Data
-        if marker_count > 0:
-            out_str += "%sMarker Count: %3.1d\n"%(out_tab_str, marker_count )
-            for i in marker_count_range:
-                out_str += "%sMarker %3.1d\n"%(out_tab_str2, i)
-                rbmarker = self.rb_marker_list[i]
-                out_str += rbmarker.get_as_string(tab_str, level+2)
-
-        out_str += "%sMarker Error  : %3.2f\n"% (out_tab_str, self.error)
-
-        # Valid Tracking
-        tf_string = 'False'
-        if self.tracking_valid:
-            tf_string = 'True'
-        out_str += "%sTracking Valid: %s\n"%(out_tab_str, tf_string)
-
-        return out_str
-
-class RigidBodyData:
-    def __init__(self):
-        self.rigid_body_list=[]
-
-    def add_rigid_body(self, rigid_body):
-        self.rigid_body_list.append(copy.deepcopy(rigid_body))
-        return len(self.rigid_body_list)
-
-    def get_rigid_body_count(self):
-        return len(self.rigid_body_list)
-
-    def get_data_dict(self):
-        data = OrderedDict()
-        for i in range(len(self.rigid_body_list)):
-            rigid_body = self.rigid_body_list[i]
-            data['rb_%d'%i] = rigid_body.get_data_dict()
-
-        return data
-
-    def get_as_string(self, tab_str="  ", level=0):
-        out_tab_str = get_tab_str(tab_str, level)
-        out_str=""
-        rigid_body_count=len(self.rigid_body_list)
-        out_str += "%sRigid Body Count: %3.1d\n"%(out_tab_str, rigid_body_count)
-        for rigid_body in self.rigid_body_list:
-            out_str += rigid_body.get_as_string(tab_str, level+1)
-        return out_str
-
-class Skeleton:
-    def __init__(self, new_id=0):
-        self.id_num=new_id
-        self.rigid_body_list=[]
-
-    def add_rigid_body(self, rigid_body):
-        self.rigid_body_list.append(copy.deepcopy(rigid_body))
-        return len(self.rigid_body_list)
-
-    def get_data_dict(self):
-        data = OrderedDict()
-        data['id_num'] = self.id_num
-        for i in range(len(self.rigid_body_list)):
-            rigid_body = self.rigid_body_list[i]
-            data['rb_%d'%i] = rigid_body.get_data_dict()
-
-        return data
-
-    def get_as_string(self, tab_str="  ", level=0):
-        out_tab_str = get_tab_str(tab_str, level)
-        out_tab_str2 = get_tab_str(tab_str, level+1)
-        out_str=""
-        out_str+="%sID: %3.1d\n"%(out_tab_str, self.id_num)
-        rigid_body_count=len(self.rigid_body_list)
-        out_str += "%sRigid Body Count: %3.1d\n"%(out_tab_str, rigid_body_count)
-        for rb_num in range(rigid_body_count):
-            out_str += "%sRigid Body %3.1d\n"%(out_tab_str2, rb_num)
-            out_str += self.rigid_body_list[rb_num].get_as_string(tab_str, level+2)
-        return out_str
-
-class SkeletonData:
-    def __init__(self):
-        self.skeleton_list=[]
-
-    def add_skeleton(self, data, count):
+    def parse(self, data) -> None:
+        rb = RigidBody(self.motive_version)
+        if len(data) != rb.dtype.itemsize * self.count:
+            raise ValueError(
+                "RigidBodies.parse() : Expected %d bytes\n\t%d rigid bodies * %d bytes\nRecieved %d."%(rb.dtype.itemsize * self.count, self.count, rb.dtype.itemsize, len(data)))
         
 
-        self.skeleton_list.append(copy.deepcopy(new_skeleton))
+        for i in range(self.count):
+            start = i*rb.dtype.itemsize
+            end = (i+1)*rb.dtype.itemsize
+            rb.parse(data[start:end])
+            self.__frame['rigid_bodies'] = np.append(self.__frame['rigid_bodies'], rb.frame())
+        
+    def frame(self) -> np.array:
+        if np.all(np.equal(self.__frame['rigid_bodies'], 0)):
+            warnings.warn("RigidBodies.frame() : No rigid bodies recorded.", Warning)
+        
+        return self.__frame
 
-    def get_skeleton_count(self):
-        return len(self.skeleton_list)
-    
-    def get_data_dict(self):
-        data = OrderedDict()
-        for i in range(len(self.skeleton_list)):
-            skeleton = self.skeleton_list[i]
-            data['skeleton_%d'%i] = skeleton.get_data_dict()
+# Each skeleton comprises some number of Rigidbodies
+class Skeleton:
+    def __init__(self, motive_version, id_num, rb_count, data = None) -> None:
+        self.motive_version = motive_version
+        self.id = id_num
+        self.count = rb_count
 
-        return data
+        self.__frame = np.array([("id_num", self.id), ("rigid_bodies", np.array([], dtype=object))])
+        self.dtype = self.__frame.dtype
 
-    def get_as_string(self, tab_str = "  ", level=0):
-        out_tab_str = get_tab_str(tab_str, level)
-        out_tab_str2 = get_tab_str(tab_str, level+1)
+        if data:
+            self.parse(data)
 
-        out_str = ""
-        skeleton_count = len(self.skeleton_list)
-        out_str += "%sSkeleton Count: %3.1d\n"%(out_tab_str, skeleton_count)
-        for skeleton_num in range(skeleton_count):
-            out_str += "%sSkeleton %3.1d\n"%(out_tab_str2, skeleton_num)
-            out_str += self.skeleton_list[skeleton_num].get_as_string(tab_str, level+2)
-        return out_str
+    def bytesize(self) -> int:
+        dummy = RigidBodies(self.motive_version, self.count)
+        return dummy.bytesize
 
+    def parse(self, data) -> None:
+        rbodies = RigidBodies(self.motive_version, self.count)
+
+        try:
+            rbodies.parse(data)
+        except ValueError as e:
+            raise ValueError("Skeleton.parse() : \n\t%s"%e)
+       
+        self.__frame['rigid_bodies'] = np.append(self.__frame['rigid_bodies'], rbodies.frame())
+
+    def frame(self) -> np.array:
+        if np.all(np.equal(self.__frame['rigid_bodies'], 0)):
+            warnings.warn("Skeleton.frame() : No rigid bodies recorded.", Warning)
+        
+        return self.__frame
+
+# Seems like MarkerSets but more detailed...?
 class LabeledMarker:
-    def __init__(self) -> None:
-        self.data = array([])
+    def __init__(self, motive_version, data = None) -> None:
+
+        self.motive_version = motive_version
+        self.dtype = self._dtype()
+        self.__frame = np.array([], dtype=self.dtype['out'])
+
+        if data:
+            self.parse(data)
+
+
 
         # self.id_num=new_id
         # self.pos = pos
         # self.size = size
         # self.param = param
         # self.residual = residual
+
+        # Dunno if this'll need to be reincorporated
         # if str(type(size)) == "<class 'tuple'>":
         #     self.size=size[0]
 
     # Set the dtype based on the motive version
-    def _dtype(self, motive_version = None):
+    def _dtype(self) -> None:
         # TODO: account for motive version
-        if motive_version:
+        if self.motive_version:
             pass
 
         dtype_in = [            
-            ('id_num', int32),
-            ('pos', [('x', float32), ('y', float32), ('z', float32)]),
-            ('size', float32),
-            ('param', int16),
-            ('residual', float32)
+            ('id_num', np.int32),
+            ('pos', [('x', np.float32), ('y', np.float32), ('z', np.float32)]),
+            ('size', np.float32),
+            ('param', np.int16),
+            ('residual', np.float32)
         ]
 
         dtype_out = [
-            ('model_id', int32),
-            ('marker_id', int32),
-            ('pos', [('x', float32), ('y', float32), ('z', float32)]),
-            ('size', float32),
-            ('occluded', int16),
-            ('point_cloud_solved', int16),
-            ('model_solved', int16),
-            ('residual', float32)
+            ('model_id', np.int32),
+            ('marker_id', np.int32),
+            ('pos', [('x', np.float32), ('y', np.float32), ('z', np.float32)]),
+            ('size', np.float32),
+            ('occluded', np.int16),
+            ('point_cloud_solved', np.int16),
+            ('model_solved', np.int16),
+            ('residual', np.float32)
         ]
 
-        return dtype_in, dtype_out
+        return {'in': dtype_in, 'out': dtype_out}
     
-    def parse(self, data, motive_version = None):
-        dtype_in, dtype_out = self._dtype(motive_version=motive_version)
-        # Structure data array
-        self.data = self.data.view(dtype=dtype_out)
+    def bytesize(self) -> int:
+        return self.dtype['in'].itemsize
 
-        expected = dtype_in.itemsize
+    def parse(self, data):
+
+        # The format of recieved data differs from that of the output
+        expected = self.dtype['in'].itemsize
         received = len(data)
         if received != expected:
             raise ValueError(
@@ -487,18 +450,23 @@ class LabeledMarker:
                 "\n\tExpected: %d bytes, \n\tReceived: %d bytes"%(
                 expected, received))
         
-        # parse stream data into temporary numpy array
-        tmp_data = frombuffer(data, dtype=dtype_in)
+        # parse input data into temp storage
+        tmp_data = np.frombuffer(data, dtype=self.dtype['in'])
 
-        # parse data into output numpy array
-        self.data['pos'] = tmp_data['pos']
-        self.data['size'] = tmp_data['size']
-        self.data['residual'] = tmp_data['residual']
 
-        # Decode id_num into model_id and marker_id
-        self.data['model_id'], self.data['marker_id'] = self.__decode_marker_id(tmp_data['id_num'])
+        # Some values need to be decoded prior to storing, but not these
+        self.__frame['pos'] = tmp_data['pos']
+        self.__frame['size'] = tmp_data['size']
+        self.__frame['residual'] = tmp_data['residual']
+
+        # These ones; using some bit shift voodoo I don't care to understand
+        self.__frame['model_id'], self.__frame['marker_id'] = self.__decode_marker_id(tmp_data['id_num'])
         # Decode param into occluded, point_cloud_solved, and model_solved
-        self.data['occluded'], self.data['point_cloud_solved'], self.data['model_solved'] = self.__decode_param(tmp_data['param'])
+        self.__frame['occluded'], self.__frame['point_cloud_solved'], self.__frame['model_solved'] = self.__decode_param(tmp_data['param'])
+
+
+    def frame(self) -> np.array:
+        return self.__frame
 
     def __decode_marker_id(self, id_num):
         model_id = id_num >> 16
@@ -510,71 +478,41 @@ class LabeledMarker:
         point_cloud_solved = ( param & 0x02 ) != 0
         model_solved = ( param & 0x04 ) != 0
         return occluded,point_cloud_solved, model_solved
-    
-    def get_data_dict(self):
-        data = OrderedDict()
-        data['id_num'] = self.id_num
-        data['pos'] = Pos(self.pos[0],self.pos[1],self.pos[2])
-        data['size'] = self.size
-        data['param'] = self.param
-        data['residual'] = self.residual
 
-        return data
-
-    def get_as_string(self, tab_str, level):
-        out_tab_str = get_tab_str(tab_str, level)
-        model_id, marker_id = self.__decode_marker_id()
-        out_str = ""
-        out_str += "%sID                 : [MarkerID: %3.1d] [ModelID: %3.1d]\n"%(out_tab_str, marker_id,model_id)
-        out_str += "%spos                : [%3.2f, %3.2f, %3.2f]\n"%(out_tab_str, self.pos[0],self.pos[1],self.pos[2])
-        out_str += "%ssize               : [%3.2f]\n"%(out_tab_str, self.size)
-
-        occluded, point_cloud_solved, model_solved = self.__decode_param()
-        out_str += "%soccluded           : [%3.1d]\n"%(out_tab_str, occluded)
-        out_str += "%spoint_cloud_solved : [%3.1d]\n"%(out_tab_str, point_cloud_solved)
-        out_str += "%smodel_solved       : [%3.1d]\n"%(out_tab_str, model_solved)
-        out_str += "%serr                : [%3.2f]\n"%(out_tab_str, self.residual)
-
-        return out_str
-
+# For storing sets of LabeledMarker
 class LabeledMarkerData:
-    def __init__(self):
-        self.labeled_marker_list=[]
+    def __init__(self, motive_version, count, data = None) -> None:
+        self.motive_version = motive_version
+        self.count = count
+        self.__frame=np.array(['LabeledMarkers', object])
+        self.dtype = self.__frame.dtype
 
-    def add_labeled_marker(self, labeled_marker):
-        self.labeled_marker_list.append(copy.deepcopy(labeled_marker))
-        return len(self.labeled_marker_list)
+    def bytesize(self) -> int:
+        dummy = LabeledMarker(self.motive_version)
+        return dummy.bytesize * self.count
 
-    def get_labeled_marker_count(self):
-        return len(self.labeled_marker_list)
-    
-    def get_data_dict(self):
-        data = OrderedDict()
-        for i in range(len(self.labeled_marker_list)):
-            labeled_marker = self.labeled_marker_list[i]
-            data['labeled_marker_%d'%i] = labeled_marker.get_data_dict()
+    def parse(self, data) -> None:
+        marker = LabeledMarker(self.motive_version)
+        if len(data) != marker.bytesize * self.count:
+            raise ValueError(
+                "LabeledMarkerData.parse() : Expected %d bytes\n\t%d markers * %d bytes\nRecieved %d."%(
+                    marker.bytesize * self.count, self.count, marker.bytesize, len(data)))
+        
 
-        return data
+        for i in range(self.count):
+            start = i*marker.bytesize
+            end = (i+1)*marker.bytesize
+            marker.parse(data[start:end])
+            self.__frame['LabeledMarkers'] = np.append(self.__frame['LabeledMarkers'], marker.frame())
 
-    def get_as_string(self, tab_str = "  ", level = 0):
-        out_tab_str = get_tab_str(tab_str, level)
-        out_tab_str2 = get_tab_str(tab_str, level+1)
-        out_str = ""
 
-        labeled_marker_count = len(self.labeled_marker_list)
-        out_str += "%sLabeled Marker Count:%3.1d\n"%(out_tab_str, labeled_marker_count )
-        for i in range( 0, labeled_marker_count ):
-            out_str += "%sLabeled Marker %3.1d\n"%(out_tab_str2,i)
-            labeled_marker = self.labeled_marker_list[i]
-            out_str += labeled_marker.get_as_string(tab_str, level+2)
-        return out_str
-
+# TODO: Add support
 class ForcePlateChannelData:
     def __init__(self):
         # list of floats
         self.frame_list=[]
 
-    def add_frame_entry(self, frame_entry):
+    def add__frame_entry(self, frame_entry):
         self.frame_list.append(copy.deepcopy(frame_entry))
         return len(self.frame_list)
 
@@ -602,7 +540,7 @@ class ForcePlateChannelData:
             out_str += " - Showing %3.1d of %3.1d frames"%(fc_show, frame_count)
         out_str += "\n"
         return out_str
-
+# TODO: Add support
 class ForcePlate:
     def __init__(self, new_id=0):
         self.id_num = new_id
@@ -630,7 +568,7 @@ class ForcePlate:
         for i in range(num_channels):
             out_str += self.channel_data_list[i].get_as_string(tab_str, level+1,i)
         return out_str
-
+# TODO: Add support
 class ForcePlateData:
     def __init__(self):
         self.force_plate_list=[]
@@ -662,13 +600,13 @@ class ForcePlateData:
             out_str += self.force_plate_list[i].get_as_string(tab_str, level+2)
 
         return out_str
-
+# TODO: Add support
 class DeviceChannelData:
     def __init__(self):
         # list of floats
         self.frame_list=[]
 
-    def add_frame_entry(self, frame_entry):
+    def add__frame_entry(self, frame_entry):
         self.frame_list.append(copy.deepcopy(frame_entry))
         return len(self.frame_list)
     
@@ -696,7 +634,7 @@ class DeviceChannelData:
             out_str += " - Showing %3.1d of %3.1d frames"%(fc_show, frame_count)
         out_str += "\n"
         return out_str
-
+# TODO: Add support
 class Device:
     def __init__(self, new_id):
         self.id_num=new_id
@@ -725,7 +663,7 @@ class Device:
             out_str += self.channel_data_list[i].get_as_string(tab_str, level+1, i)
 
         return out_str
-
+# TODO: Add support
 class DeviceData:
     def __init__(self):
         self.device_list=[]
@@ -756,153 +694,89 @@ class DeviceData:
             out_str += self.device_list[i].get_as_string(tab_str, level+1, i)
         return out_str
 
+# timestamps and other metadata
 class FrameSuffixData:
-    def __init__(self):
-        self.timecode=-1
-        self.timecode_sub=-1
-        self.timestamp = -1
-        self.stamp_camera_mid_exposure = -1
-        self.stamp_data_received = -1
-        self.stamp_transmit = -1
-        self.param = 0
-        self.is_recording = False
-        self.tracked_models_changed = True
+    def __init__(self, motive_version, data = None) -> None:
+        self.motive_version = motive_version
+        self.dtype = self._dtype()
+        self.__frame = np.array([(0, 0, -1, -1, -1, -1, 0, False, True)], dtype=self.dtype)
 
-    def get_data_dict(self):
-        data = OrderedDict()
-        for prop, val in vars(self).items():
-            data[prop] = val
+        if data:
+            self.parse(data)
 
-        return data
+    def _dtype(self) -> np.dtype:
+        if self.motive_version:
+            pass
 
+        dtype = np.dtype([
+            ('timecode', np.int32),
+            ('timecode_sub', np.int32),
+            ('timestamp', np.float64),
+            ('stamp_camera_mid_exposure', np.uint64),
+            ('stamp_data_received', np.uint64),
+            ('stamp_transmit', np.uint64),
+            ('param', np.int32),
+            ('is_recording', np.bool),
+            ('tracked_models_changed', np.bool)
+        ])
 
-    def get_as_string(self, tab_str="  ", level=0):
-        out_tab_str = get_tab_str(tab_str, level)
-
-        out_str = ""
-        if not self.timestamp == -1:
-            out_str += "%sTimestamp : %3.2f\n"%(out_tab_str, self.timestamp)
-        if not self.stamp_camera_mid_exposure == -1:
-            out_str += "%sMid-exposure timestamp : %3.1d\n"%(out_tab_str, self.stamp_camera_mid_exposure)
-        if not self.stamp_data_received == -1:
-            out_str += "%sCamera data received timestamp : %3.1d\n"%(out_tab_str, self.stamp_data_received)
-        if not self.stamp_transmit == -1:
-            out_str += "%sTransmit timestamp : %3.1d\n"%(out_tab_str, self.stamp_transmit)
-
-        return out_str
-
-class MoCapData:
-    def __init__(self, motive_version = None) -> None:
-
-        self._motive_version = motive_version
+        return dtype
+    
+    def bytesize(self) -> int:
+        return self.dtype.itemsize
+    
+    def parse(self, data) -> None:
+        if len(data) != self.dtype.itemsize:
+            raise ValueError(
+                "FrameSuffixData.parse() : Expected %d bytes, recieved %d."%(
+                self.dtype.itemsize, len(data)))
         
-        # Initialize all asset data to None
-        self._assets = {
-            'prefix': FramePrefixData(),
-            'marker_set': None,
-            'rigid_body': None,
-            'skeleton': None,
-            'labeled_marker': None,
-            'force_plate': None,
-            'device': None,
-            'suffix': None
+        self.__frame = np.frombuffer(data, dtype=self.dtype)
+
+    def frame(self) -> np.array:
+        return self.__frame
+
+# Aggregate frame data
+class MoCapFrame:
+    def __init__(self) -> None:
+        
+        # Aggregate Frame Data
+        self.__frame = {
+            'prefix': [],
+            'model_marker_sets': [],
+            'unlabeled_marker_sets': [],
+            'rigid_bodies': [],
+            'skeletons': [],
+            'labeled_marker_sets': [],
+            'force_plates': [],
+            'devices': [],
+            'suffix': []
         }
-
-    # parse data from a packet
-    def parse_asset_data(self, data, asset_type) -> None:
-
-        if asset_type not in self._assets.keys():
-            raise ValueError("MoCapData.parse_asset() | Unexpected asset_type: %s"%asset_type)
-        
-        self._assets[asset_type].parse_data(data, self._motive_version)
     
     # Return asset data
-    def export_asset_data(self, asset_type = None):
-        if asset_type:
-            return self._asset_data[asset_type].data
-        
-        # TODO: bundle asset data, but how to handle lists???
-        else:
-            return self._asset_data
+    def frame(self, asset = None, frame = None) -> np.array:
 
-    def set_prefix_data(self, new_prefix_data):
-        self.prefix_data = new_prefix_data
+        if asset:
+            if asset not in self.__frame.keys():
+                raise ValueError("MoCapData.frame() | Unexpected asset type: %s"%asset)
+            
+            if frame:
+                self.__frame[asset] = frame
 
-    def set_marker_set_data(self, new_marker_set_data):
-        self.marker_set_data = new_marker_set_data
+            return self.__frame[asset]
 
-    def set_rigid_body_data(self, new_rigid_body_data):
-        self.rigid_body_data = new_rigid_body_data
+        if frame:
+            raise ValueError("MoCapData.frame() | Asset type required if frame is provided.")
+            
 
-    def set_skeleton_data(self, new_skeleton_data):
-        self.skeleton_data = new_skeleton_data
-
-    def set_labeled_marker_data(self, new_labeled_marker_data):
-        self.labeled_marker_data = new_labeled_marker_data
-
-    def set_force_plate_data(self, new_force_plate_data):
-        self.force_plate_data = new_force_plate_data
-
-    def set_device_data(self, new_device_data):
-        self.device_data = new_device_data
-
-    def set_suffix_data(self, new_suffix_data):
-        self.suffix_data = new_suffix_data
-
-    def get_as_string(self, tab_str = "  ", level = 0):
-        out_tab_str = get_tab_str(tab_str, level)
-
-        out_str=""
-        out_str+= "%sMoCap Frame Begin\n%s-----------------\n"%(out_tab_str,out_tab_str)
-        if not self.prefix_data == None:
-            out_str+=self.prefix_data.get_as_string()
-        else:
-            out_str+="%sNo Prefix Data Set\n"%(out_tab_str)
-
-        if not self.marker_set_data == None:
-            out_str+=self.marker_set_data.get_as_string(tab_str, level+1)
-        else:
-            out_str+="%sNo Marker Set Data Set\n"%(out_tab_str)
-
-        if not self.rigid_body_data == None:
-            out_str+=self.rigid_body_data.get_as_string(tab_str, level+1)
-        else:
-            out_str+="%sNo Rigid Body Data Set\n"%(out_tab_str)
-
-        if not self.skeleton_data == None:
-            out_str+=self.skeleton_data.get_as_string(tab_str, level+1)
-        else:
-            out_str+="%sNo Skeleton Data Set\n"%(out_tab_str)
-
-        if not self.labeled_marker_data == None:
-            out_str+=self.labeled_marker_data.get_as_string(tab_str, level+1)
-        else:
-            out_str+="%sNo Labeled Marker Data Set\n"%(out_tab_str)
-
-        if not self.force_plate_data == None:
-            out_str+=self.force_plate_data.get_as_string(tab_str, level+1)
-        else:
-            out_str+="%sNo Force Plate Data Set\n"%(out_tab_str)
-
-        if not self.device_data == None:
-            out_str+=self.device_data.get_as_string(tab_str, level+1)
-        else:
-            out_str+="%sNo Device Data Set\n"%(out_tab_str)
-
-        if not self.suffix_data == None:
-            out_str+=self.suffix_data.get_as_string(tab_str, level+1)
-        else:
-            out_str+="%sNo Suffix Data Set\n"%(out_tab_str)
-
-        out_str+= "%sMoCap Frame End\n%s-----------------\n"%(out_tab_str,out_tab_str)
-
-        return out_str
-
+        return self.__frame
 
 # test program
+import unittest
+
 
 def generate_prefix_data(frame_num = 0):
-    frame_prefix_data = FramePrefixData(frame_num)
+    frame_prefix_data = FramePrefix(frame_num)
     return frame_prefix_data
 
 def generate_label(label_base="label", label_num=0):
@@ -918,7 +792,7 @@ def generate_marker_data(label_base, label_num, num_points=1):
     label=generate_label(label_base, label_num)
     if((label_base == None) or (label_base == "")):
         label=""
-    marker_data=MarkerData()
+    marker_data=MarkerSet()
     marker_data.set_model_name(label)
     start_num=label_num * 10000
     end_num = start_num+num_points
@@ -929,7 +803,7 @@ def generate_marker_data(label_base, label_num, num_points=1):
     return marker_data
 
 def generate_marker_set_data(frame_num = 0, marker_set_num=0):
-    marker_set_data=MarkerSetData()
+    marker_set_data=MarkerSets()
     #add labeled markers
     marker_set_data.add_marker_data(generate_marker_data("marker",0,3))
     marker_set_data.add_marker_data(generate_marker_data("marker",1,6))
@@ -964,7 +838,7 @@ def generate_rigid_body(body_num=0, frame_num = 0):
     return rigid_body
 
 def generate_rigid_body_data(frame_num = 0):
-    rigid_body_data=RigidBodyData()
+    rigid_body_data=RigidBodies()
     # add rigid bodies
     rigid_body_data.add_rigid_body(generate_rigid_body(0, frame_num))
     rigid_body_data.add_rigid_body(generate_rigid_body(1, frame_num))
@@ -981,7 +855,7 @@ def generate_skeleton(frame_num=0, skeleton_num=0,num_rbs=1):
     return skeleton
 
 def generate_skeleton_data(frame_num = 0):
-    skeleton_data = SkeletonData()
+    skeleton_data = Skeletons()
     skeleton_data.add_skeleton(generate_skeleton(frame_num, 0, 2))
     skeleton_data.add_skeleton(generate_skeleton(frame_num, 1, 6))
     skeleton_data.add_skeleton(generate_skeleton(frame_num, 2, 3))
@@ -1010,12 +884,12 @@ def generate_labeled_marker_data(frame_num = 0):
 
     return labeled_marker_data
 
-def generate_fp_channel_data(frame_num=0,fp_num=0, channel_num=0, num_frames =1):
+def generate_fp_channel_data(frame_num=0,fp_num=0, channel_num=0, num__frames =1):
     rseed=(frame_num*100000)+(fp_num*10000)+(channel_num *1000)
     random.seed(rseed)
     fp_channel_data = ForcePlateChannelData()
-    for _ in range(num_frames):
-        fp_channel_data.add_frame_entry(100.0*random.random())
+    for _ in range(num__frames):
+        fp_channel_data.add__frame_entry(100.0*random.random())
     return fp_channel_data
 
 def generate_force_plate(frame_num=0, fp_num = 0, num_channels=1):
@@ -1033,12 +907,12 @@ def generate_force_plate_data(frame_num = 0):
     force_plate_data.add_force_plate(generate_force_plate(frame_num, 2,2))
     return force_plate_data
 
-def generate_device_channel_data(frame_num=0,device_num=0, channel_num=0, num_frames =1):
+def generate_device_channel_data(frame_num=0,device_num=0, channel_num=0, num__frames =1):
     rseed=(frame_num*100000)+(device_num*10000)+(channel_num *1000)
     random.seed(rseed)
     device_channel_data = DeviceChannelData()
-    for _ in range(num_frames):
-        device_channel_data.add_frame_entry(100.0*random.random())
+    for _ in range(num__frames):
+        device_channel_data.add__frame_entry(100.0*random.random())
     return device_channel_data
 
 def generate_device(frame_num=0, device_num=0):
@@ -1065,7 +939,7 @@ def generate_suffix_data(frame_num = 0):
     return frame_suffix_data
 
 def generate_mocap_data(frame_num=0):
-    mocap_data=MoCapData()
+    mocap_data=MoCapFrame()
 
     mocap_data.set_prefix_data(generate_prefix_data(frame_num))
     mocap_data.set_marker_set_data(generate_marker_set_data(frame_num))

@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 import pickle
 
 # Import OptiTracker API wrapper class
-from OptiTracker import OptiTracker
+from OptiTracker.OptiTracker.OptiTracker import OptiTracker
 
 # Initialize OptiTracker
 OptiTracker = OptiTracker()

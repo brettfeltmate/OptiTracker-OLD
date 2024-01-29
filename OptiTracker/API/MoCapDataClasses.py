@@ -1,179 +1,137 @@
-#Copyright © 2021 Naturalpoint
-#
-#Licensed under the Apache License, Version 2.0 (the "License")
-#you may not use this file except in compliance with the License.
-#You may obtain a copy of the License at
-#
-#http://www.apache.org/licenses/LICENSE-2.0
-#
-#Unless required by applicable law or agreed to in writing, software
-#distributed under the License is distributed on an "AS IS" BASIS,
-#WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#See the License for the specific language governing permissions and
-#limitations under the License.
-
-
-# OptiTrack NatNet direct depacketization sample for Python 3.x
-#
-
-
-# Uses the Python NatNetClient.py library to establish a connection (by creating a NatNetClient),
-# and receive data via a NatNet connection and decode it using the NatNetClient library.
-
-
+# TODO: Document
 
 from construct import Struct
+from .MoCapDataStructures import MOCAP_DATA_STRUCTS
 
-from .StructureDicts import DATA_STRUCT_DICT
 
-# #
-# Asset Data Objs
-# #     Internal methods for setting structure using Construct Structs
-#       External methods for parsing, exporting, and returning pointer offsets
-# # 
-
-# Parent class for all asset data structures
-class AssetDataStruct:
-    def __init__(self, motive_version, data = None) -> None:
+# 
+# Parent class for asset-specific child classes
+#       NOTE: These classes parse & ship frame-wise data.
+#       NOTE: Asset descriptions are defined in MoCapDescriptionClasses.py
+class DataAsset:
+    def __init__(self, motive_version, bytestream = None) -> None:
         self.motive_version = motive_version  # Determines which structure to use
         self._structure = self._structure()   # Asset specific Construct Struct
         self._parsed = None                   # To store parsed data
 
         # Parse data if provided during instantiation
-        if data is not None:
-            self.parse(data)
+        if bytestream is not None:
+            self.parse(bytestream)
 
-    # Returns Construct Struct corresponding to calling child's asset data type
+    # Fetches child-appropriate data Struct(), conditioned on motive version
     def _structure(self) -> Struct:
-        struct_dict = DATA_STRUCT_DICT[type(self)]
+        struct_dict = MOCAP_DATA_STRUCTS[type(self)]
         return struct_dict.get(self.motive_version, struct_dict['default'])
     
-    # Returns end position in bytestream after parsing
+    # TODO: Determining expected offset a priori might be handy; not sure how to do this
+    # Returns landing position in datastream after parsing
     def offset(self) -> int:
+        # NOTE: Offset pruned out when dump()ing data 
         if self._parsed is not None:
             return self._parsed['offset']
     
-    # Parses data using Construct Struct
-    def parse(self, data) -> None:
-        self._parsed = self._structure.parse(data)
+    # Shadows Construct.Struct.parse() method
+    def parse(self, bytestream) -> None:
+        self._parsed = self._structure.parse(bytestream)
 
-    # Returns parsed data, implemented by child class
-    def dump(self) -> dict:
+    # Coerces data parcels into list[dict]; bundling procedure varies by child
+    #       NOTE: Children drop terminal entries (1 = obj addr, -1 = offset)
+    def dump(self) -> list[dict]:
         raise NotImplementedError("AssetDataStruct.dump() | Must be implemented by child class.")
 
-
-# Parses frame number; seems unnecessary
-class FramePrefix(AssetDataStruct):
-    def __init__(self, motive_version, data = None) -> None:
-        super().__init__(motive_version, data)     
+#
+# AssetData Child classes
+#
+    
+# Parses frame number; seems overkill
+class DataPrefix(DataAsset):
+    def __init__(self, motive_version, bytestream = None) -> None:
+        super().__init__(motive_version, bytestream)     
         
-    def dump(self) -> int:
-        # TODO: not sure if offset gets returned
-        return dict(list(self._parsed.items())[1:-1])
+    def dump(self) -> list[dict]:
+        return [dict(list(self._parsed.items())[1:-1])]
 
 
-# Parses N MarkerSets, each composed of N Markers
-class MarkerSets(AssetDataStruct):
-    def __init__(self, motive_version, data = None) -> None:
-        super().__init__(motive_version, data)
+# Parses N-i MarkerSets, each composed of N-j Markers
+class DataMarkerSets(DataAsset):
+    def __init__(self, motive_version, bytestream = None) -> None:
+        super().__init__(motive_version, bytestream)
 
-    def dump(self) -> list:
-        # (sorry for the mouthfull; upper levels for parsing, innermost stores data)
-        # Each dict a marker, with 1st entry (obj addr) dropped
+    def dump(self) -> list[dict]:
+        # TODO: hopefully this can be simplified one day
+        # Sets <- Set <- Markers <- Marker; marker(s) are data units.
         return [dict(list(marker.items())[1:]) 
                 for marker_set in self._parsed.marker_sets 
                 for marker in marker_set.markers]
 
 
-# Parses rigid bodies not associated with skeletons
-class RigidBodies(AssetDataStruct):
-    def __init__(self, motive_version, data = None) -> None:
-        super().__init__(motive_version, data)
+# Parses N-i rigid bodies NOT integral to skeletons, each composed of N-j rigid body(s)
+class DataRigidBodies(DataAsset):
+    def __init__(self, motive_version, bytestream = None) -> None:
+        super().__init__(motive_version, bytestream)
 
-    def dump(self) -> list:
-        # Coerce each RB to dict for easy table insertion
-        # Drop first entry (obj addr) from each RB
-        return [dict(list(rb.items())[1:]) for rb in self._parsed['rigid_bodies']]
+    def dump(self) -> list[dict]:
+        # rigid_bodies <- rigid_body; rigid_body(s) are data unit
+        return [dict(list(rb.items())[1:]) 
+                for rb in self._parsed.rigid_bodies]
 
 
-# Parses N Skeletons, each composed of N RigidBodies
-class Skeletons(AssetDataStruct):
-    def __init__(self, motive_version, data = None) -> None:
-        super().__init__(motive_version, data)
+# Parses N-i skeletons, each composed of N-j rigid bodies, each composed of N-k rigid body(s)
+class DataSkeletons(DataAsset):
+    def __init__(self, motive_version, bytestream = None) -> None:
+        super().__init__(motive_version, bytestream)
 
-    def dump(self) -> list:
-        # Each dict a rigid body, labeled by skeleton_id, with 1st entry (obj addr) dropped
+    def dump(self) -> list[dict]:
+        # skeletons <- skeleton <- rigid_bodies <- rigid_body; rigid_body(s) are data unit
+        # rigid_body(s) here are labeled with skeleton id
         return [dict(list(rb.items())[1:]) 
                 for skeleton in self._parsed.skeletons 
-                for rigid_body in skeleton.rigid_bodies_list
-                for rb in rigid_body.rigid_bodies]
+                for rb_set in skeleton.rigid_body_sets
+                for rb in rb_set.rigid_bodies]
 
 
-# Parses labeled markers
-# ... TODO: wtf, what is the point if these don't contain labels??? Fix this.
-class LabeledMarkers(AssetDataStruct):
-    def __init__(self, motive_version, data = None) -> None:
-        super().__init__(motive_version, data)
-        # if str(type(size)) == "<class 'tuple'>": self.size=size[0]
+# TODO: I suspect I'll find out these are the same as Markers, but more detailed (EXCEPT LABELS???)
+# Parses N-i labeled marker sets, each composed of N-j labeled markers
+class DataLabeledMarkers(DataAsset):
+    def __init__(self, motive_version, bytestream = None) -> None:
+        super().__init__(motive_version, bytestream)
+        # NOTE: vesitigial; maybe does something.
+        #   if str(type(size)) == "<class 'tuple'>": self.size=size[0]
 
-    def dump(self) -> list:
-        # Each dict a marker, with 1st entry (obj addr) dropped
-        return [dict(list(marker.items())[1:]) for marker in self._parsed.labeled_markers]
+    def dump(self) -> list[dict]:
+        # labeled_markers <- labeled_marker; marker(s) are data unit
+        return [dict(list(marker.items())[1:]) 
+                for marker in self._parsed.labeled_markers]
 
 
-# TODO: Add support for remaining classes
-class ForcePlateChannelData:
-    def __init__(self):
-        self.frame_list=[]
+# Parses N-i force plates, each plate composed of N-j channels  
+class DataForcePlates(DataAsset):
+    def __init__(self, motive_version, bytestream = None) -> None:
+        super().__init__(motive_version, bytestream)
 
-    def dump(self) -> list:
-        pass
+    def dump(self) -> list[dict]:
+        return [dict(list(channel.items())[1:]) 
+                for plate in self._parsed.force_plates 
+                for channel in plate.channels]
 
-class ForcePlate:
-    def __init__(self, new_id=0):
-        self.id_num = new_id
-        self.channel_data_list=[]
+# Parses N-i devices, each device composed of N-j channels
+class DataDevices(DataAsset):
+    def __init__(self, motive_version, bytestream = None) -> None:
+        super().__init__(motive_version, bytestream)
 
-    def dump(self) -> list:
-        pass
+    def dump(self) -> list[dict]:
+        return [dict(list(channel.items())[1:]) 
+                for device in self._parsed.devices 
+                for channel in device.channels]
 
-class ForcePlateData:
-    def __init__(self):
-        self.force_plate_list=[]
 
-    def dump(self) -> list:
-        pass
+# Parses frame suffix data (e.g. timecode, timestamp, etc.; see MoCapDataStructures.py)
+class DataSuffix(DataAsset):
+    def __init__(self, motive_version, bytestream = None) -> None:
+        super().__init__(motive_version, bytestream)
 
-class DeviceChannelData:
-    def __init__(self):
-        self.frame_list=[]
-
-    def dump(self) -> list:
-        pass
-
-class Device:
-    def __init__(self, new_id):
-        self.id_num=new_id
-        self.channel_data_list = []
-
-    def dump(self) -> list:
-        pass
-
-class DeviceData:
-    def __init__(self):
-        self.device_list=[]
-
-    def dump(self) -> list:
-        pass
-
-# timestamps and other metadata
-class FrameSuffix(AssetDataStruct):
-    def __init__(self, motive_version, data = None) -> None:
-        super().__init__(motive_version, data)
-
-    def dump(self) -> dict:
-        # Each dict a suffix, 1st (obj addr) and last (offset) entries dropped
-        return dict(list(self._parsed.items())[1:-1])
+    def dump(self) -> list[dict]:
+        return [dict(list(self._parsed.items())[1:-1])]
     
 # Aggregate frame data
 # TODO: Is this even necessary?

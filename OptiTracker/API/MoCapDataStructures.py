@@ -1,71 +1,82 @@
-from .MoCapDataClasses import FramePrefix, MarkerSets, RigidBodies, Skeletons, LabeledMarkers, ForcePlates, Devices, FrameSuffix, MoCapData
+# Necessary for creating structure dicts
+from .MoCapDataClasses import DataPrefix, DataMarkerSets, DataRigidBodies, DataSkeletons, DataLabeledMarkers, DataForcePlates, DataDevices, DataSuffix
 
+# Structures created using the work of art that is the Construct library
 from construct import Struct, CString, Byte, Default
-from construct import IfThenElse, Peek, this, Computed, Tell, ctx
-from construct import Int32ul, Int16ub, Float32l, Float32b, Int64ul, Int32ul
+from construct import IfThenElse, Peek, this, Computed, Tell
+from construct import Int32ul, Int16ub, Float32l, Int64ul, Int32ul
 
+# TODO: Prepopulating with default values upon construction might be smart/necessary...
 
+# MoCap Asset Data structures
+#       NOTE: Structures for MoCap asset descriptions defined in MoCapDescriptionStructures.py
 #
-# Data structures
+#   Structures first collated into asset-specific dictionaries
+#   then collated into a master dictionary indexed by asset type & Motive version
+#   Default values are provided, which assume Motive version >= 3.0
 #
+#   Note: Backwards compatibility (versions < 3.0) yet to be implemented
 
 
-# prefix data structures
+# Structures for Frame Prefix data
 # ----------------------
-prefix_struct_motive_V3 = Struct(
+prefix_data_v3 = Struct(
     'frame_number' / Int32ul,
+    # Tell returns landing point in datastream after parsing
     'offset' / Tell
 )
 
-prefix_structs = {
-    'default': prefix_struct_motive_V3,
-    '3.0': prefix_struct_motive_V3
-    # TODO: incorporate older versions
+# NOTE: asset-specific dictionaries allow for version-specific structures (once implemented)
+struct_prefix_data = {
+    'default': prefix_data_v3,
+    '3.0': prefix_data_v3
 }
 # ----------------------
 
 
 
-# Marker Set data structures
+# Structures for Marker Set(s) data
 # --------------------------
-marker_struct_motive_V3 = Struct(
+marker_data_v3 = Struct(
     # 'ctx._.' points to enclosing struct
-    'model' / Computed(lambda ctx: ctx._.model),
+    'id_model' / Computed(lambda ctx: ctx._.id_model),
     'pos_x' / Float32l,
     'pos_y' / Float32l,
     'pos_z' / Float32l
 )
 
-marker_set_struct_motive_V3 = Struct(
-    'model' / IfThenElse(
-        # If byte non-null, grab model label
+# TODO: test Peek() with dummy data; not sure if this works like I think it does
+marker_set_data_v3 = Struct(
+    'id_model' / IfThenElse(
+        # Model labels terminate with null byte; if byte non-null, grab model label
         Peek(Byte) != 0, 
         CString('utf8'),
-        # Default to 'unlabeled' otherwise
+        # Otherwise, default to 'unlabeled'
         Default(CString('utf8'), 'unlabeled')
     ),
-    'marker_count' / Int32ul,
-    'markers' / marker_struct_motive_V3[this.marker_count]
+    'count' / Int32ul,
+    # [] operator constructs a list (of len count) of given struct
+    'markers' / marker_data_v3[this.count]
 )
 
-marker_sets_struct_motive_V3 = Struct(
-    'marker_set_count' / Int32ul,
-    'marker_sets' / marker_set_struct_motive_V3[this.marker_set_count],
+marker_sets_data_v3 = Struct(
+    'count' / Int32ul,
+    'sets' / marker_set_data_v3[this.count],
     'offset' / Tell
 )
 
-marker_sets_structs = {
-    'default': marker_set_struct_motive_V3,
-    '3.0': marker_set_struct_motive_V3
+struct_marker_sets_data = {
+    'default': marker_set_data_v3,
+    '3.0': marker_set_data_v3
 }
 # --------------------------
 
 
-# Skeleton data structures
+# Structures for Skeleton(s) data (essentially rigid bodies with extra metadata)
 # ------------------------
-rigid_body_struct_skeleton_motive_V3 = Struct(
-    'skeleton_id' / Computed(lambda ctx: ctx._.skeleton_id),
-    'id_num' / Int32ul,
+skeleton_rb_marker_data_v3 = Struct(
+    'id_skeleton' / Computed(lambda ctx: ctx._.id_skeleton),
+    'id_self' / Int32ul,
     'pos_x' / Float32l,
     'pos_y' / Float32l,
     'pos_z' / Float32l,
@@ -77,35 +88,35 @@ rigid_body_struct_skeleton_motive_V3 = Struct(
     'tracking_valid' / Int16ub
 )
 
-rigid_bodies_struct_skeleton_motive_V3 = Struct(
-    'skeleton_id' / Computed(lambda ctx: ctx._.skeleton_id),
-    'rigid_bodies_count' / Int32ul,
-    'rbodies' / rigid_body_struct_skeleton_motive_V3[this.rigid_bodies_count]
+skeleton_rb_set_data_v3 = Struct(
+    'id_skeleton' / Computed(lambda ctx: ctx._.id_skeleton),
+    'count' / Int32ul,
+    'rigid_bodies' / skeleton_rb_marker_data_v3[this.count]
 )
 
-skeleton_struct_motive_V3 = Struct(
-    'skeleton_id' / Int32ul,
-    'rigid_body_count' / Int32ul,
-    'rigid_bodies_list' / rigid_bodies_struct_skeleton_motive_V3[this.rigid_body_count]
+skeleton_data_v3 = Struct(
+    'id_skeleton' / Int32ul,
+    'count' / Int32ul,
+    'rigid_body_sets' / skeleton_rb_set_data_v3[this.count]
 )
 
-skeletons_struct_motive_V3 = Struct(
-    'skeleton_count' / Int32ul,
-    'skeletons' / skeleton_struct_motive_V3[this.skeleton_count],
+skeleton_set_data_v3 = Struct(
+    'count' / Int32ul,
+    'skeletons' / skeleton_data_v3[this.count],
     'offset' / Tell
 )
 
-skeletons_structs = {
-    'default': skeletons_struct_motive_V3,
-    '3.0': skeletons_struct_motive_V3
+struct_skeleton_sets_data = {
+    'default': skeleton_set_data_v3,
+    '3.0': skeleton_set_data_v3
 }
 # ------------------------
 
 
-# Non-Skeleton associated Rigid Body data structures
+# Structures for (non-skeleton associated) Rigid Body(s) data
 # --------------------------------------------------
-rigid_body_struct_motive_V3 = Struct(
-    'id_num' / Int32ul,
+rb_marker_data_v3 = Struct(
+    'id_self' / Int32ul,
     'pos_x' / Float32l,
     'pos_y' / Float32l,
     'pos_z' / Float32l,
@@ -117,23 +128,23 @@ rigid_body_struct_motive_V3 = Struct(
     'tracking_valid' / Int16ub
 )
 
-rigid_bodies_struct_motive_V3 = Struct(
-    'rigid_body_count' / Int32ul,
-    'rigid_bodies' / rigid_body_struct_motive_V3[this.rigid_body_count],
+rb_set_data_v3 = Struct(
+    'count' / Int32ul,
+    'rigid_bodies' / rb_marker_data_v3[this.count],
     'offset' / Tell
 )
 
-rigid_bodies_structs = {
-    'default': rigid_bodies_struct_motive_V3,
-    '3.0': rigid_bodies_struct_motive_V3
+struct_rigid_body_sets_data = {
+    'default': rb_set_data_v3,
+    '3.0': rb_set_data_v3
 }
 # --------------------------------------------------
 
 
-# Labeled Marker data structures
+# Structures for Labeled Marker(s) data
 # ------------------------------
-labeled_marker_struct_motive_V3 = Struct(
-    'id_num' / Int32ul,
+lbl_marker_data_v3 = Struct(
+    'id_self' / Int32ul,
     'pos_x' / Float32l,
     'pos_y' / Float32l,
     'pos_z' / Float32l,
@@ -142,39 +153,68 @@ labeled_marker_struct_motive_V3 = Struct(
     'residual' / Float32l
 )
 
-labeled_markers_struct_motive_V3 = Struct(
-    'labeled_marker_count' / Int32ul,
-    'labeled_markers' / labeled_marker_struct_motive_V3[this.labeled_marker_count],
+lbl_marker_set_data_v3 = Struct(
+    'count' / Int32ul,
+    'labeled_markers' / lbl_marker_data_v3[this.count],
     'offset' / Tell
 )
 
-labeled_markers_structs = {
-    'default': labeled_markers_struct_motive_V3,
-    '3.0': labeled_markers_struct_motive_V3
+struct_lbl_marker_sets_data = {
+    'default': lbl_marker_set_data_v3,
+    '3.0': lbl_marker_set_data_v3
 }
 # ------------------------------
 
 
-# Force Plate data structures
-# TODO: implement
+# Structures for Force Plate(s) data
 # ---------------------------
-force_plate_channel_struct_motive_V3 = Struct()
-force_plates_struct_motive_V3 = Struct()
-force_plates_structs = {
-    'default': force_plates_struct_motive_V3,
-    '3.0': force_plates_struct_motive_V3
+fplate_channel_data_v3 = Struct(
+    'id_force_plate' / Computed(lambda ctx: ctx._.id_self),
+    'value' / Float32l[this.count]
+)
+
+fplate_data_v3 = Struct(
+    'id_self' / Int32ul,
+    'count' / Int32ul,
+    'channels' / fplate_channel_data_v3[this.count]
+)
+
+fplates_data_v3 = Struct(
+    'count' / Int32ul,
+    'force_plates' / fplate_data_v3[this.count],
+    'offset' / Tell
+)
+
+struct_force_plates_data = {
+    'default': fplates_data_v3,
+    '3.0': fplates_data_v3
 }
 # ---------------------------
 
 
-# Device data structures
-# TODO: implement
+# Structures for Device(s) data
 # ----------------------------
-device_channel_struct_motive_V3 = Struct()
-devices_struct_motive_V3 = Struct()
-devices_structs = {
-    'default': devices_struct_motive_V3,
-    '3.0': devices_struct_motive_V3
+device_channel_data_v3 = Struct(
+    'id_device' / Computed(lambda ctx: ctx._.id_self),
+    'float_value' / Float32l,
+    'int_value' / Int32ul
+)
+
+device_data_v3 = Struct(
+    'id_self' / Int32ul,
+    'count' / Int32ul,
+    'channels' / device_channel_data_v3[this.count]
+)
+
+devices_data_v3 = Struct(
+    'count' / Int32ul,
+    'devices' / device_data_v3[this.count],
+    'offset' / Tell
+)
+
+struct_devices_data = {
+    'default': devices_data_v3,
+    '3.0': devices_data_v3
 }
 # ----------------------------
 
@@ -182,7 +222,7 @@ devices_structs = {
 # Frame Suffix data structures
 # ----------------------------
 
-frame_suffix_struct_motive_V3 = Struct(
+suffix_data_v3 = Struct(
     'timecode' / Int32ul,
     'timecode_sub' / Int32ul,
     'timestamp' / Float32l,
@@ -195,9 +235,9 @@ frame_suffix_struct_motive_V3 = Struct(
     'offset' / Tell
 )
 
-frame_suffix_structs = {
-    'default': frame_suffix_struct_motive_V3,
-    '3.0': frame_suffix_struct_motive_V3
+struct_suffix_data = {
+    'default': suffix_data_v3,
+    '3.0': suffix_data_v3
 }
 
 # ----------------------------
@@ -205,13 +245,13 @@ frame_suffix_structs = {
 #
 # Structure Dictionary
 #
-DATA_STRUCT_DICT = {
-    FramePrefix: prefix_structs,
-    MarkerSets: marker_sets_structs,
-    RigidBodies: rigid_bodies_structs,
-    Skeletons: skeletons_structs,
-    LabeledMarkers: labeled_markers_structs,
-    ForcePlates: force_plates_structs,
-    Devices: devices_structs,
-    FrameSuffix: frame_suffix_structs
+MOCAP_DATA_STRUCTS = {
+    DataPrefix: struct_prefix_data,
+    DataMarkerSets: struct_marker_sets_data,
+    DataRigidBodies: struct_rigid_body_sets_data,
+    DataSkeletons: struct_skeleton_sets_data,
+    DataLabeledMarkers: struct_lbl_marker_sets_data,
+    DataForcePlates: struct_force_plates_data,
+    DataDevices: struct_devices_data,
+    DataSuffix: struct_suffix_data
 }

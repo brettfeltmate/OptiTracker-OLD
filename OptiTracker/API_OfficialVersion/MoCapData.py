@@ -222,7 +222,6 @@ class RigidBodyMarker:
         out_str += "%sSize    : %3.1d\n"%(out_tab_str, self.size)
         return out_str
 
-
 class RigidBody:
     def __init__(self, new_id, pos, rot):
         self.id_num = new_id
@@ -270,7 +269,6 @@ class RigidBody:
 
         return out_str
 
-
 class RigidBodyData:
     def __init__(self):
         self.rigid_body_list=[]
@@ -317,7 +315,6 @@ class Skeleton:
             out_str += "%sRigid Body %3.1d\n"%(out_tab_str2, rb_num)
             out_str += self.rigid_body_list[rb_num].get_as_string(tab_str, level+2)
         return out_str
-
 
 class SkeletonData:
     def __init__(self):
@@ -424,7 +421,6 @@ class AssetData:
 
         return out_str
 
-
 class LabeledMarker:
     def __init__(self, new_id, pos, size=0.0, param = 0, residual=0.0):
         self.id_num=new_id
@@ -462,7 +458,6 @@ class LabeledMarker:
         out_str += "%serr                : [%3.2f]\n"%(out_tab_str, self.residual)
 
         return out_str
-
 
 class LabeledMarkerData:
     def __init__(self):
@@ -592,7 +587,6 @@ class DeviceChannelData:
         out_str += "\n"
         return out_str
 
-
 class Device:
     def __init__(self, new_id):
         self.id_num=new_id
@@ -613,7 +607,6 @@ class Device:
             out_str += self.channel_data_list[i].get_as_string(tab_str, level+1, i)
 
         return out_str
-
 
 class DeviceData:
     def __init__(self):

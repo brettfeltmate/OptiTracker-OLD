@@ -4,7 +4,7 @@ from .MoCapDataClasses import DataPrefix, DataMarkerSets, DataRigidBodies, DataS
 # Structures created using the work of art that is the Construct library
 from construct import Struct, CString, Byte, Default
 from construct import IfThenElse, Peek, this, Computed, Tell
-from construct import Int32ul, Int16ub, Float32l, Int64ul, Int32ul
+from construct import Int32ul, Int16ul, Float32l, Int64ul, Int32ul
 
 # TODO: Prepopulating with default values upon construction might be smart/necessary...
 
@@ -18,227 +18,192 @@ from construct import Int32ul, Int16ub, Float32l, Int64ul, Int32ul
 #   Note: Backwards compatibility (versions < 3.0) yet to be implemented
 
 
-# Structures for Frame Prefix data
-# ----------------------
-prefix_data_v3 = Struct(
+
+# Frame prefix (i.e. frame number)
+# --------------------------
+dataStruct_Prefix = Struct(
     'frame_number' / Int32ul,
-    # Tell returns landing point in datastream after parsing
     'offset' / Tell
 )
-
-# NOTE: asset-specific dictionaries allow for version-specific structures (once implemented)
-struct_prefix_data = {
-    'default': prefix_data_v3,
-    '3.0': prefix_data_v3
-}
-# ----------------------
-
-
-
-# Structures for Marker Set(s) data
 # --------------------------
-marker_data_v3 = Struct(
-    # 'ctx._.' points to enclosing struct
+
+
+# Mocap marker data, organized as set of sets of markers
+# --------------------------
+
+# Individual Markers
+dataStruct_Marker = Struct(
+    # Dupe id_model from parent struct
     'id_model' / Computed(lambda ctx: ctx._.id_model),
-    'pos_x' / Float32l,
-    'pos_y' / Float32l,
-    'pos_z' / Float32l
+    'pos_x' / Float32l, 'pos_y' / Float32l, 'pos_z' / Float32l
 )
 
-# TODO: test Peek() with dummy data; not sure if this works like I think it does
-marker_set_data_v3 = Struct(
-    'id_model' / IfThenElse(
-        # Model labels terminate with null byte; if byte non-null, grab model label
-        Peek(Byte) != 0, 
-        CString('utf8'),
-        # Otherwise, default to 'unlabeled'
-        Default(CString('utf8'), 'unlabeled')
-    ),
+# Set of Markers
+dataStruct_MarkerSet = Struct(
+    'id_model' / Default(CString('utf8'), 'unlabeled'),
     'count' / Int32ul,
-    # [] operator constructs a list (of len count) of given struct
-    'markers' / marker_data_v3[this.count]
+    # Preallocate marker-wise data
+    'markers' / dataStruct_Marker[this.count]
 )
 
-marker_sets_data_v3 = Struct(
+# Set of sets
+dataStruct_MarkerSets = Struct(
     'count' / Int32ul,
-    'sets' / marker_set_data_v3[this.count],
+    'sets' / dataStruct_MarkerSet[this.count],
+    'packet_size' / Int32ul,
     'offset' / Tell
 )
 
-struct_marker_sets_data = {
-    'default': marker_set_data_v3,
-    '3.0': marker_set_data_v3
-}
 # --------------------------
 
 
-# Structures for Skeleton(s) data (essentially rigid bodies with extra metadata)
+# Mocap Skeleton data; essentially a triple-nested list of rigid bodies (ew)
 # ------------------------
-skeleton_rb_marker_data_v3 = Struct(
-    'id_skeleton' / Computed(lambda ctx: ctx._.id_skeleton),
+dataStruct_SkeletonRigidBody = Struct(
+    'id_parent' / Computed(lambda ctx: ctx._.id_parent),
     'id_self' / Int32ul,
-    'pos_x' / Float32l,
-    'pos_y' / Float32l,
-    'pos_z' / Float32l,
-    'rot_w' / Float32l,
-    'rot_x' / Float32l,
-    'rot_y' / Float32l,
-    'rot_z' / Float32l,
+    'pos_x' / Float32l, 'pos_y' / Float32l, 'pos_z' / Float32l,
+    'rot_w' / Float32l, 'rot_x' / Float32l, 'rot_y' / Float32l, 'rot_z' / Float32l,
     'error' / Float32l,
-    'tracking_valid' / Int16ub
+    'tracking_valid' / Int16ul
 )
 
-skeleton_rb_set_data_v3 = Struct(
-    'id_skeleton' / Computed(lambda ctx: ctx._.id_skeleton),
+dataStruct_SkeletonRigidBodies = Struct(
+    'id_parent' / Computed(lambda ctx: ctx._.id_self),
     'count' / Int32ul,
-    'rigid_bodies' / skeleton_rb_marker_data_v3[this.count]
+    'rigid_bodies' / dataStruct_SkeletonRigidBody[this.count]
 )
 
-skeleton_data_v3 = Struct(
-    'id_skeleton' / Int32ul,
+dataStruct_Skeleton = Struct(
+    'id_self' / Int32ul,
     'count' / Int32ul,
-    'rigid_body_sets' / skeleton_rb_set_data_v3[this.count]
+    'rigid_body_sets' / dataStruct_SkeletonRigidBodies[this.count]
 )
 
-skeleton_set_data_v3 = Struct(
+dataStruct_Skeletons = Struct(
     'count' / Int32ul,
-    'skeletons' / skeleton_data_v3[this.count],
+    'packet_size' / Int32ul,
+    'skeletons' / dataStruct_Skeleton[this.count],
     'offset' / Tell
 )
 
-struct_skeleton_sets_data = {
-    'default': skeleton_set_data_v3,
-    '3.0': skeleton_set_data_v3
-}
 # ------------------------
 
 
-# Structures for (non-skeleton associated) Rigid Body(s) data
+# Mocap data for Rigid Bodies not integral to Skeletons (why)
 # --------------------------------------------------
-rb_marker_data_v3 = Struct(
+dataStruct_RigidBody = Struct(
     'id_self' / Int32ul,
-    'pos_x' / Float32l,
-    'pos_y' / Float32l,
-    'pos_z' / Float32l,
-    'rot_w' / Float32l,
-    'rot_x' / Float32l,
-    'rot_y' / Float32l,
-    'rot_z' / Float32l,
+    'pos_x' / Float32l, 'pos_y' / Float32l, 'pos_z' / Float32l,
+    'rot_w' / Float32l, 'rot_x' / Float32l, 'rot_y' / Float32l, 'rot_z' / Float32l,
     'error' / Float32l,
-    'tracking_valid' / Int16ub
+    'tracking_valid' / Int16ul
 )
 
-rb_set_data_v3 = Struct(
+dataStruct_RigidBodies = Struct(
     'count' / Int32ul,
-    'rigid_bodies' / rb_marker_data_v3[this.count],
+    'packet_size' / Int32ul,
+    'rigid_bodies' / dataStruct_RigidBody[this.count],
     'offset' / Tell
 )
-
-struct_rigid_body_sets_data = {
-    'default': rb_set_data_v3,
-    '3.0': rb_set_data_v3
-}
 # --------------------------------------------------
 
 
-# Structures for Labeled Marker(s) data
+# Mocap data for Labeled Markers (does not contain marker labels)
 # ------------------------------
-lbl_marker_data_v3 = Struct(
+dataStruct_LabeledMarker = Struct(
     'id_self' / Int32ul,
-    'pos_x' / Float32l,
-    'pos_y' / Float32l,
-    'pos_z' / Float32l,
+    'pos_x' / Float32l, 'pos_y' / Float32l, 'pos_z' / Float32l,
     'size' / Float32l,
-    'param' / Int16ub,
+    'param' / Int16ul,
     'residual' / Float32l
 )
 
-lbl_marker_set_data_v3 = Struct(
+dataStruct_LabeledMarkerSet = Struct(
     'count' / Int32ul,
-    'labeled_markers' / lbl_marker_data_v3[this.count],
+    'packet_size' / Int32ul,
+    'labeled_markers' / dataStruct_LabeledMarker[this.count],
     'offset' / Tell
 )
-
-struct_lbl_marker_sets_data = {
-    'default': lbl_marker_set_data_v3,
-    '3.0': lbl_marker_set_data_v3
-}
 # ------------------------------
 
 
-# Structures for Force Plate(s) data
+# Mocap data for Force Plates; essentially a triple-nested list of channel-wise frame values (wtvr those are)
 # ---------------------------
-fplate_channel_data_v3 = Struct(
-    'id_force_plate' / Computed(lambda ctx: ctx._.id_self),
-    'value' / Float32l[this.count]
+
+dataStruct_ForcePlateChannelFrame = Struct(
+    'id_parent' / Computed(lambda ctx: ctx._.id_self),
+    'value' / Float32l
 )
 
-fplate_data_v3 = Struct(
+dataStruct_ForcePlateChannel = Struct(
+    'id_parent' / Computed(lambda ctx: ctx._.id_self),
+    'count' / Int32ul,
+    'frames' / dataStruct_ForcePlateChannelFrame[this.count]
+)
+
+dataStruct_ForcePlate = Struct(
     'id_self' / Int32ul,
     'count' / Int32ul,
-    'channels' / fplate_channel_data_v3[this.count]
+    'channels' / dataStruct_ForcePlateChannel[this.count]
 )
 
-fplates_data_v3 = Struct(
+dataStruct_ForcePlates = Struct(
     'count' / Int32ul,
-    'force_plates' / fplate_data_v3[this.count],
+    'packet_size' / Int32ul,
+    'force_plates' / dataStruct_ForcePlate[this.count],
     'offset' / Tell
 )
 
-struct_force_plates_data = {
-    'default': fplates_data_v3,
-    '3.0': fplates_data_v3
-}
 # ---------------------------
 
 
 # Structures for Device(s) data
 # ----------------------------
-device_channel_data_v3 = Struct(
-    'id_device' / Computed(lambda ctx: ctx._.id_self),
-    'float_value' / Float32l,
-    'int_value' / Int32ul
+dataStruct_DeviceChannelFrame = Struct(
+    'id_parent' / Computed(lambda ctx: ctx._.id_self),
+    'value' / Float32l
 )
 
-device_data_v3 = Struct(
+dataStruct_DeviceChannel = Struct(
+    'id_parent' / Computed(lambda ctx: ctx._.id_self),
+    'count' / Int32ul,
+    'frames' / dataStruct_DeviceChannelFrame[this.count]
+)
+
+dataStruct_Device = Struct(
     'id_self' / Int32ul,
     'count' / Int32ul,
-    'channels' / device_channel_data_v3[this.count]
+    'channels' / dataStruct_DeviceChannel[this.count]
 )
 
-devices_data_v3 = Struct(
+dataStruct_Devices = Struct(
     'count' / Int32ul,
-    'devices' / device_data_v3[this.count],
+    'packet_size' / Int32ul,
+    'devices' / dataStruct_Device[this.count],
     'offset' / Tell
 )
 
-struct_devices_data = {
-    'default': devices_data_v3,
-    '3.0': devices_data_v3
-}
 # ----------------------------
 
 
 # Frame Suffix data structures
 # ----------------------------
 
-suffix_data_v3 = Struct(
+dataStruct_Suffix = Struct(
     'timecode' / Int32ul,
     'timecode_sub' / Int32ul,
-    'timestamp' / Float32l,
+    'timestamp' / Int64ul,
     'stamp_camera_mid_exposure' / Int64ul,
     'stamp_data_received' / Int64ul,
     'stamp_transmit' / Int64ul,
+    'prec_timestamp_secs' / Int32ul,
+    'prec_timestamp_frac_secs' / Int32ul,
     'param' / Int32ul,
     'is_recording' / Byte,
     'tracked_models_changed' / Byte,
     'offset' / Tell
 )
-
-struct_suffix_data = {
-    'default': suffix_data_v3,
-    '3.0': suffix_data_v3
-}
 
 # ----------------------------
 
@@ -246,12 +211,12 @@ struct_suffix_data = {
 # Structure Dictionary
 #
 MOCAP_DATA_STRUCTS = {
-    DataPrefix: struct_prefix_data,
-    DataMarkerSets: struct_marker_sets_data,
-    DataRigidBodies: struct_rigid_body_sets_data,
-    DataSkeletons: struct_skeleton_sets_data,
-    DataLabeledMarkers: struct_lbl_marker_sets_data,
-    DataForcePlates: struct_force_plates_data,
-    DataDevices: struct_devices_data,
-    DataSuffix: struct_suffix_data
+    DataPrefix: dataStruct_Prefix,
+    DataMarkerSets: dataStruct_MarkerSets,
+    DataRigidBodies: dataStruct_RigidBodies,
+    DataSkeletons: dataStruct_Skeletons,
+    DataLabeledMarkers: dataStruct_LabeledMarkerSet,
+    DataForcePlates: dataStruct_ForcePlates,
+    DataDevices: dataStruct_Devices,
+    DataSuffix: dataStruct_Suffix
 }

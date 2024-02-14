@@ -166,7 +166,6 @@ class RBMarker:
             (out_tab_str, self.active_label, self.pos[0],self.pos[1],self.pos[2],self.marker_name )
         return out_string
 
-
 class RigidBodyDescription:
     def __init__(self,sz_name="", new_id=0, parent_id=0,pos=[0.0,0.0,0.0]):
         self.sz_name=sz_name
@@ -211,8 +210,6 @@ class RigidBodyDescription:
             out_string += "%s%i %s"%(out_tab_str2,i,self.rb_marker_list[i].get_as_string(tab_str,0))
         return out_string
 
-
-
 class SkeletonDescription:
     def __init__(self, name="", new_id=0):
         self.name = name
@@ -241,7 +238,6 @@ class SkeletonDescription:
             out_string += "%sRigid Body (Bone) %d\n"%(out_tab_str2, i)
             out_string += self.rigid_body_description_list[i].get_as_string(tab_str,level+2)
         return out_string
-
 
 class ForcePlateDescription:
     def __init__(self, new_id=0, serial_number=""):
@@ -446,8 +442,6 @@ class AssetDescription:
         out_string += "numMarkers    : %d\n"%(self.markerArray.size())
 
         return out_string
-
-
 
 # cDataDescriptions
 # Full data descriptions

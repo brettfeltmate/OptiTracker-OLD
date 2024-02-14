@@ -19,8 +19,8 @@ import struct
 from threading import Thread
 import copy
 import time
-from Resources.APIs.Official.PythonClient import DataDescriptions
-from Resources.APIs.Official.PythonClient import MoCapData
+import DataDescriptions
+import MoCapData
 
 def trace( *args ):
     # uncomment the one you want to use
@@ -58,7 +58,7 @@ class NatNetClient:
     # print_level = 0 off
     # print_level = 1 on
     # print_level = >1 on / print every nth mocap frame
-    print_level = 0
+    print_level = 20
     
     def __init__( self ):
         # Change this value to the IP address of the NatNet server.
@@ -82,21 +82,10 @@ class NatNetClient:
         self.rigid_body_listener = None
         self.new_frame_listener  = None
 
-        # TODO: seeing if I can extract specific descriptions
-        self.full_description_listener = None
-        self.skeleton_description_listener = None
-        self.rigid_body_description_listener = None
-        self.rb_marker_description_listener = None
-
-        # Assign callback methods to get asset specific frame data.
-        self.skeletons_frame_listener = None
-        self.rigid_bodies_frame_listener = None
-
-
         # Set Application Name
         self.__application_name = "Not Set"
 
-        # NatNet stream version serveris capable of. This will be updated during initialization only.
+        # NatNet stream version server is capable of. This will be updated during initialization only.
         self.__nat_net_stream_version_server = [0,0,0,0]
 
         # NatNet stream version. This will be updated to the actual version the server is using during runtime.
@@ -109,7 +98,7 @@ class NatNetClient:
         self.__is_locked = False
 
         # Server has the ability to change bitstream version
-        self.__can_change_bitstream_version = True
+        self.__can_change_bitstream_version = False
 
         self.command_thread = None
         self.data_thread = None
@@ -149,6 +138,7 @@ class NatNetClient:
     def get_server_address(self):
         return self.server_ip_address
 
+
     def set_use_multicast(self, use_multicast):
         if not self.__is_locked:
             self.use_multicast = use_multicast
@@ -160,8 +150,8 @@ class NatNetClient:
         """checks to see if stream version can change, then changes it with position reset"""
         return_code = -1
         if self.__can_change_bitstream_version and \
-            (major != self.__nat_net_requested_version[0]) and\
-            (minor != self.__nat_net_requested_version[1]):
+            ((major != self.__nat_net_requested_version[0]) or\
+             (minor != self.__nat_net_requested_version[1])):
             sz_command = "Bitstream,%1.1d.%1.1d"%(major, minor)
             return_code = self.send_command(sz_command)
             if return_code >=0:
@@ -185,7 +175,10 @@ class NatNetClient:
                 time.sleep(2)
                 #reset to original output state
                 #self.set_print_results(print_results)
+            else:
+                print("Bitstream change request failed")
         return return_code
+
 
     def get_major(self):
         return self.__nat_net_requested_version[0]
@@ -200,6 +193,7 @@ class NatNetClient:
 
     def get_print_level(self):
         return self.print_level
+
 
     def connected(self):
         ret_value = True
@@ -217,6 +211,7 @@ class NatNetClient:
             (self.__server_version[3] == 0):
             ret_value = False
         return ret_value
+
 
     # Create a command socket to attach to the NatNet stream
     def __create_command_socket( self ):
@@ -345,6 +340,10 @@ class NatNetClient:
 
         rigid_body = MoCapData.RigidBody(new_id, pos, rot)
 
+        # Send information to any listener.
+        if self.rigid_body_listener is not None:
+            self.rigid_body_listener( new_id, pos, rot )
+
         # RB Marker Data ( Before version 3.0.  After Version 3.0 Marker data is in description )
         if( major < 3  and major != 0) :
             # Marker count (4 bytes)
@@ -363,7 +362,6 @@ class NatNetClient:
                 offset += 12
                 trace_mf( "\tMarker", i, ":", pos[0],",", pos[1],",", pos[2] )
                 rb_marker_list[i].pos=pos
-
 
             if major >= 2:
                 # Marker ID's
@@ -385,7 +383,7 @@ class NatNetClient:
         if major >= 2 :
             marker_error, = FloatValue.unpack( data[offset:offset+4] )
             offset += 4
-            trace_mf( "\tMarker Error: %3.2f"% marker_error )
+            trace_mf( "\tMean Marker Error: %3.2f"% marker_error )
             rigid_body.error = marker_error
 
         # Version 2.6 and later
@@ -406,44 +404,84 @@ class NatNetClient:
         return offset, rigid_body
 
     # Unpack a skeleton object from a data packet
-    def __unpack_skeleton( self, data, major, minor):
+    def __unpack_skeleton( self, data, major, minor, skeleton_num=0):
 
         offset = 0
         new_id = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
-        trace_mf( "ID:", new_id )
+        trace_mf( "Skeleton %3.1d ID: %3.1d"% (skeleton_num, new_id ))
         skeleton = MoCapData.Skeleton(new_id)
 
         rigid_body_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
         trace_mf( "Rigid Body Count : %3.1d"% rigid_body_count )
-        for rb_num in range( 0, rigid_body_count ):
-            offset_tmp, rigid_body = self.__unpack_rigid_body( data[offset:], major, minor, rb_num )
-            skeleton.add_rigid_body(rigid_body)
-            offset+=offset_tmp
+        if(rigid_body_count > 0):
+            for rb_num in range( 0, rigid_body_count ):
+                offset_tmp, rigid_body = self.__unpack_rigid_body( data[offset:], major, minor, rb_num )
+                skeleton.add_rigid_body(rigid_body)
+                offset+=offset_tmp
 
         return offset, skeleton
 
-    # Unpack Mocap Data Functions
+#Unpack Mocap Data Functions
     def __unpack_frame_prefix_data( self, data):
         offset = 0
         # Frame number (4 bytes)
         frame_number = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
-        trace_mf( "Frame #:", frame_number )
-        frame_prefix_data=MoCapData.FramePrefix(frame_number)
+        trace_mf( "Frame #: %3.1d"% frame_number )
+        frame_prefix_data=MoCapData.FramePrefixData(frame_number)
         return offset, frame_prefix_data
 
+    def __unpack_data_size(self, data, major, minor):
+        sizeInBytes=0
+        offset=0
+
+        if( ( (major == 4) and (minor>0) ) or (major > 4)):
+            sizeInBytes = int.from_bytes( data[offset:offset+4], byteorder='little' )
+            offset += 4
+            trace_mf( "Byte Count: %3.1d"% sizeInBytes )
+
+        return offset, sizeInBytes
+
+    def __unpack_legacy_other_markers( self, data, packet_size, major, minor):
+        offset = 0
+
+        # Marker set count (4 bytes)
+        other_marker_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
+        offset += 4
+        trace_mf( "Other Marker Count:", other_marker_count )
+
+        # get data size (4 bytes)
+        offset_tmp, unpackedDataSize = self.__unpack_data_size(data[offset:],major, minor)
+        offset += offset_tmp
+
+        other_marker_data = MoCapData.LegacyMarkerData()
+        if(other_marker_count > 0):
+            # get legacy_marker positions
+            ### legacy_marker_data
+            for j in range( 0, other_marker_count ):
+                pos = Vector3.unpack( data[offset:offset+12] )
+                offset += 12
+                trace_mf( "\tMarker %3.1d : [x=%3.2f,y=%3.2f,z=%3.2f]"%( j, pos[0], pos[1], pos[2] ))
+                other_marker_data.add_pos(pos)
+ 
+        return offset, other_marker_data
+
     def __unpack_marker_set_data( self, data, packet_size, major, minor):
-        marker_set_data=MoCapData.MarkerSets()
+        marker_set_data=MoCapData.MarkerSetData()
         offset = 0
         # Marker set count (4 bytes)
         marker_set_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
         trace_mf( "Marker Set Count:", marker_set_count )
 
+        # get data size (4 bytes)
+        offset_tmp, unpackedDataSize = self.__unpack_data_size(data[offset:],major, minor)
+        offset += offset_tmp
+
         for i in range( 0, marker_set_count ):
-            marker_data = MoCapData.MarkerSet()
+            marker_data = MoCapData.MarkerData()
             # Model name
             model_name, separator, remainder = bytes(data[offset:]).partition( b'\0' )
             offset += len( model_name ) + 1
@@ -452,46 +490,62 @@ class NatNetClient:
             # Marker count (4 bytes)
             marker_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
             offset += 4
-            trace_mf( "Marker Count    : ", marker_count )
+            if(marker_count < 0):
+                print("WARNING: Early return.  Invalid marker count")
+                offset = len(data)
+                return offset, marker_set_data
+            elif(marker_count > 10000):
+                print("WARNING: Early return.  Marker count too high")
+                offset = len(data)
+                return offset, marker_set_data
 
+            trace_mf( "Marker Count    : ", marker_count )
             for j in range( 0, marker_count ):
+                if(len(data)<(offset+12)):
+                    print("WARNING: Early return.  Out of data at marker ",j," of ", marker_count)
+                    offset = len(data)
+                    return offset, marker_set_data
+                    break
                 pos = Vector3.unpack( data[offset:offset+12] )
                 offset += 12
-                trace_mf( "\tMarker %3.1d : [%3.2f,%3.2f,%3.2f]"%( j, pos[0], pos[1], pos[2] ))
+                trace_mf( "\tMarker %3.1d : [x=%3.2f,y=%3.2f,z=%3.2f]"%( j, pos[0], pos[1], pos[2] ))
                 marker_data.add_pos(pos)
             marker_set_data.add_marker_data(marker_data)
 
         # Unlabeled markers count (4 bytes)
-        unlabeled_markers_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
-        offset += 4
-        trace_mf( "Unlabeled Markers Count:", unlabeled_markers_count )
+        #unlabeled_markers_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
+        #offset += 4
+        #trace_mf( "Unlabeled Markers Count:", unlabeled_markers_count )
 
-        for i in range( 0, unlabeled_markers_count ):
-            pos = Vector3.unpack( data[offset:offset+12] )
-            offset += 12
-            trace_mf( "\tMarker %3.1d : [%3.2f,%3.2f,%3.2f]"%( i, pos[0], pos[1], pos[2] ))
-            marker_set_data.add_unlabeled_marker(pos)
+        #for i in range( 0, unlabeled_markers_count ):
+        #    pos = Vector3.unpack( data[offset:offset+12] )
+        #    offset += 12
+        #    trace_mf( "\tMarker %3.1d : [%3.2f,%3.2f,%3.2f]"%( i, pos[0], pos[1], pos[2] ))
+        #    marker_set_data.add_unlabeled_marker(pos)
         return offset, marker_set_data
 
     def __unpack_rigid_body_data( self, data, packet_size, major, minor):
-        rigid_body_data = MoCapData.RigidBodies()
+        rigid_body_data = MoCapData.RigidBodyData()
         offset = 0
         # Rigid body count (4 bytes)
         rigid_body_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
         trace_mf( "Rigid Body Count:", rigid_body_count )
 
+        # get data size (4 bytes)
+        offset_tmp, unpackedDataSize = self.__unpack_data_size(data[offset:],major, minor)
+        offset += offset_tmp
+
         for i in range( 0, rigid_body_count ):
             offset_tmp, rigid_body = self.__unpack_rigid_body( data[offset:], major, minor, i )
             offset += offset_tmp
             rigid_body_data.add_rigid_body(rigid_body)
 
-
         return offset, rigid_body_data
 
-    # TODO: unnecessary, refactor as single unpack_skeleton function
+
     def __unpack_skeleton_data( self, data, packet_size, major, minor):
-        skeleton_data = MoCapData.Skeletons()
+        skeleton_data = MoCapData.SkeletonData()
 
         offset = 0
         # Version 2.1 and later
@@ -500,11 +554,15 @@ class NatNetClient:
             skeleton_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
             offset += 4
             trace_mf( "Skeleton Count:", skeleton_count )
-            for _ in range( 0, skeleton_count ):
-                rel_offset, skeleton = self.__unpack_skeleton( data[offset:], major, minor )
-                offset += rel_offset
-                skeleton_data.add_skeleton(skeleton)
-
+            
+            # get data size (4 bytes)
+            offset_tmp, unpackedDataSize = self.__unpack_data_size(data[offset:],major, minor)
+            offset += offset_tmp
+            if(skeleton_count >0):
+                for skeleton_num in range( 0, skeleton_count ):
+                    rel_offset, skeleton = self.__unpack_skeleton( data[offset:], major, minor, skeleton_num )
+                    offset += rel_offset
+                    skeleton_data.add_skeleton(skeleton)
 
         return offset, skeleton_data
 
@@ -524,7 +582,12 @@ class NatNetClient:
             labeled_marker_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
             offset += 4
             trace_mf( "Labeled Marker Count:", labeled_marker_count )
-            for _ in range( 0, labeled_marker_count ):
+
+            # get data size (4 bytes)
+            offset_tmp, unpackedDataSize = self.__unpack_data_size(data[offset:],major, minor)
+            offset += offset_tmp
+
+            for lm_num in range( 0, labeled_marker_count ):
                 model_id = 0
                 marker_id = 0
                 tmp_id = int.from_bytes( data[offset:offset+4], byteorder='little' )
@@ -534,9 +597,9 @@ class NatNetClient:
                 offset += 12
                 size = FloatValue.unpack( data[offset:offset+4] )
                 offset += 4
-                trace_mf("ID     : [MarkerID: %3.1d] [ModelID: %3.1d]"%(marker_id,model_id))
-                trace_mf("  pos  : [%3.2f, %3.2f, %3.2f]"%(pos[0],pos[1],pos[2]))
-                trace_mf("  size : [%3.2f]"%size)
+                trace_mf("%3.1d ID     : [MarkerID: %3.1d] [ModelID: %3.1d]"%(lm_num, marker_id,model_id))
+                trace_mf("    pos  : [%3.2f, %3.2f, %3.2f]"%(pos[0],pos[1],pos[2]))
+                trace_mf("    size : [%3.2f]"%size)
 
 
                 # Version 2.6 and later
@@ -553,7 +616,8 @@ class NatNetClient:
                 if major >= 3 :
                     residual, = FloatValue.unpack( data[offset:offset+4] )
                     offset += 4
-                    trace_mf( "  err  : [%3.2f]"% residual )
+                    residual = residual * 1000.0
+                    trace_mf( "    err  : [%3.2f]"% residual )
 
                 labeled_marker = MoCapData.LabeledMarker(tmp_id,pos,size,param, residual)
                 labeled_marker_data.add_labeled_marker(labeled_marker)
@@ -570,6 +634,11 @@ class NatNetClient:
             force_plate_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
             offset += 4
             trace_mf( "Force Plate Count:", force_plate_count )
+
+            # get data size (4 bytes)
+            offset_tmp, unpackedDataSize = self.__unpack_data_size(data[offset:],major, minor)
+            offset += offset_tmp
+
             for i in range( 0, force_plate_count ):
                 # ID
                 force_plate_id = int.from_bytes( data[offset:offset+4], byteorder='little' )
@@ -616,6 +685,11 @@ class NatNetClient:
             device_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
             offset += 4
             trace_mf( "Device Count:", device_count )
+
+            # get data size (4 bytes)
+            offset_tmp, unpackedDataSize = self.__unpack_data_size(data[offset:],major, minor)
+            offset += offset_tmp
+
             for i in range( 0, device_count ):
 
                 # ID
@@ -666,107 +740,136 @@ class NatNetClient:
         offset += 4
         frame_suffix_data.timecode_sub = timecode_sub
 
-        # Timestamp (increased to double precision in 2.7 and later)
-        if ( major == 2 and minor >= 7 ) or (major > 2 ):
-            timestamp, = DoubleValue.unpack( data[offset:offset+8] )
-            offset += 8
+        param=0
+        #check to see if there is enough data
+        if((packet_size-offset) <= 0):
+            print("ERROR: Early End of Data Frame Suffix Data")
+            print("\tNo time stamp info available")
         else:
-            timestamp, = FloatValue.unpack( data[offset:offset+4] )
-            offset += 4
-        trace_mf("Timestamp : %3.2f"%timestamp)
-        frame_suffix_data.timestamp = timestamp
+            # Timestamp (increased to double precision in 2.7 and later)
+            if ( major == 2 and minor >= 7 ) or (major > 2 ):
+                timestamp, = DoubleValue.unpack( data[offset:offset+8] )
+                offset += 8
+            else:
+                timestamp, = FloatValue.unpack( data[offset:offset+4] )
+                offset += 4
+            trace_mf("Timestamp : %3.2f"%timestamp)
+            frame_suffix_data.timestamp = timestamp
 
-        # Hires Timestamp (Version 3.0 and later)
-        if major >= 3 :
-            stamp_camera_mid_exposure = int.from_bytes( data[offset:offset+8], byteorder='little' )
-            trace_mf("Mid-exposure timestamp         : %3.1d"%stamp_camera_mid_exposure)
-            offset += 8
-            frame_suffix_data.stamp_camera_mid_exposure = stamp_camera_mid_exposure
+            # Hires Timestamp (Version 3.0 and later)
+            if major >= 3 :
+                stamp_camera_mid_exposure = int.from_bytes( data[offset:offset+8], byteorder='little' )
+                trace_mf("Mid-exposure timestamp         : %3.1d"%stamp_camera_mid_exposure)
+                offset += 8
+                frame_suffix_data.stamp_camera_mid_exposure = stamp_camera_mid_exposure
 
-            stamp_data_received = int.from_bytes( data[offset:offset+8], byteorder='little' )
-            offset += 8
-            frame_suffix_data.stamp_data_received = stamp_data_received
-            trace_mf("Camera data received timestamp : %3.1d"%stamp_data_received)
+                stamp_data_received = int.from_bytes( data[offset:offset+8], byteorder='little' )
+                offset += 8
+                frame_suffix_data.stamp_data_received = stamp_data_received
+                trace_mf("Camera data received timestamp : %3.1d"%stamp_data_received)
 
-            stamp_transmit = int.from_bytes( data[offset:offset+8], byteorder='little' )
-            offset += 8
-            trace_mf("Transmit timestamp             : %3.1d"%stamp_transmit)
-            frame_suffix_data.stamp_transmit = stamp_transmit
+                stamp_transmit = int.from_bytes( data[offset:offset+8], byteorder='little' )
+                offset += 8
+                trace_mf("Transmit timestamp             : %3.1d"%stamp_transmit)
+                frame_suffix_data.stamp_transmit = stamp_transmit
 
+            # Precision Timestamp (Version 4.1 and later) (defaults as 0 if N/A)
+            if major >= 4:
+                prec_timestamp_secs = int.from_bytes( data[offset:offset+4], byteorder='little' )
+                hours = int(prec_timestamp_secs/3600)
+                minutes=int(prec_timestamp_secs/60)%60
+                seconds=prec_timestamp_secs%60
+                out_string="Precision timestamp (h:m:s) - %4.1d:%2.2d:%2.2d"%(hours, minutes, seconds)
+                trace_mf("%s"%out_string)
+                trace_mf("Precision timestamp (sec)      : %3.1d"%prec_timestamp_secs)
+                offset += 4
+                frame_suffix_data.prec_timestamp_secs = prec_timestamp_secs
 
-        # Frame parameters
-        param, = struct.unpack( 'h', data[offset:offset+2] )
+                prec_timestamp_frac_secs = int.from_bytes( data[offset:offset+4], byteorder='little' )
+                trace_mf("Precision timestamp (frac sec) : %3.1d"%prec_timestamp_frac_secs)
+                offset += 4
+                frame_suffix_data.prec_timestamp_frac_secs = prec_timestamp_frac_secs
+
+            # Frame parameters
+            param, = struct.unpack( 'h', data[offset:offset+2] )
+            offset += 2
         is_recording = ( param & 0x01 ) != 0
         tracked_models_changed = ( param & 0x02 ) != 0
-        offset += 2
         frame_suffix_data.param = param
         frame_suffix_data.is_recording = is_recording
         frame_suffix_data.tracked_models_changed = tracked_models_changed
 
         return offset, frame_suffix_data
 
+
     # Unpack data from a motion capture frame message
     def __unpack_mocap_data( self, data : bytes, packet_size, major, minor):
-        mocap_frame = MoCapData.MoCapFrame()
-        trace_mf( "MoCap Frame Begin\n-----------------" )
+        mocap_data = MoCapData.MoCapData()
         data = memoryview( data )
         offset = 0
         rel_offset = 0
-
+        
         #Frame Prefix Data
         rel_offset, frame_prefix_data = self.__unpack_frame_prefix_data(data[offset:])
         offset += rel_offset
-        mocap_frame.set_prefix_data(frame_prefix_data)
+        mocap_data.set_prefix_data(frame_prefix_data)
         frame_number = frame_prefix_data.frame_number
 
         #Marker Set Data
         rel_offset, marker_set_data =self.__unpack_marker_set_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_frame.set_marker_set_data(marker_set_data)
+        mocap_data.set_marker_set_data(marker_set_data)
         marker_set_count = marker_set_data.get_marker_set_count()
         unlabeled_markers_count = marker_set_data.get_unlabeled_marker_count()
+
+        # Legacy Other Markers
+        rel_offset, legacy_other_markers =self.__unpack_legacy_other_markers(data[offset:], (packet_size - offset),major, minor)
+        offset += rel_offset
+        mocap_data.set_legacy_other_markers(legacy_other_markers)
+        marker_set_count = legacy_other_markers.get_marker_count()
+        legacy_other_markers_count = marker_set_data.get_unlabeled_marker_count()
 
         # Rigid Body Data
         rel_offset, rigid_body_data = self.__unpack_rigid_body_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_frame.set_rigid_body_data(rigid_body_data)
+        mocap_data.set_rigid_body_data(rigid_body_data)
         rigid_body_count = rigid_body_data.get_rigid_body_count()
-
-        # If listener provided, return rigid body frame data
-        if self.rigid_bodies_frame_listener is not None:
-            self.rigid_bodies_frame_listener(frame_number, rigid_body_data.get_data_dict())
 
         # Skeleton Data
         rel_offset, skeleton_data = self.__unpack_skeleton_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_frame.set_skeleton_data(skeleton_data)
+        mocap_data.set_skeleton_data(skeleton_data)
         skeleton_count = skeleton_data.get_skeleton_count()
 
-        # If listener provided, return skeleton frame data
-        if self.skeletons_frame_listener is not None:
-            self.skeletons_frame_listener(frame_number, skeleton_data.get_data_dict())
+        # Assets ( Motive 3.1/NatNet 4.1 and greater)
+        if (((major == 4) and (minor > 0)) or (major > 4)):
+            rel_offset, asset_data = self.__unpack_asset_data(data[offset:], (packet_size - offset),major, minor)
+            offset += rel_offset
+            mocap_data.set_asset_data(asset_data)
+            asset_rigid_body_count = asset_data.get_rigid_body_count()
+            asset_marker_count = asset_data.get_marker_count()
 
         # Labeled Marker Data
         rel_offset, labeled_marker_data = self.__unpack_labeled_marker_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_frame.set_labeled_marker_data(labeled_marker_data)
+        mocap_data.set_labeled_marker_data(labeled_marker_data)
         labeled_marker_count = labeled_marker_data.get_labeled_marker_count()
 
         # Force Plate Data
         rel_offset, force_plate_data = self.__unpack_force_plate_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_frame.set_force_plate_data(force_plate_data)
+        mocap_data.set_force_plate_data(force_plate_data)
 
         # Device Data
         rel_offset,device_data = self.__unpack_device_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_frame.set_device_data(device_data)
+        mocap_data.set_device_data(device_data)
 
         # Frame Suffix Data
         #rel_offset, timecode, timecode_sub, timestamp, is_recording, tracked_models_changed = \
         rel_offset, frame_suffix_data =   self.__unpack_frame_suffix_data(data[offset:], (packet_size - offset),major, minor)
         offset += rel_offset
-        mocap_frame.set_suffix_data(frame_suffix_data)
+        mocap_data.set_suffix_data(frame_suffix_data)
 
 
         timecode = frame_suffix_data.timecode
@@ -774,24 +877,25 @@ class NatNetClient:
         timestamp = frame_suffix_data.timestamp
         is_recording = frame_suffix_data.is_recording
         tracked_models_changed = frame_suffix_data.tracked_models_changed
+
         # Send information to any listener.
         if self.new_frame_listener is not None:
-            # data_dict={}
-            # data_dict["frame_number"]=frame_number
-            # data_dict[ "timecode"] = timecode
-            # data_dict[ "timecode_sub"] = timecode_sub
-            # data_dict[ "timestamp"] = timestamp
-            # data_dict[ "is_recording"] = is_recording
-            # data_dict[ "tracked_models_changed"] = tracked_models_changed
-            # data_dict[ "marker_set_data"] = marker_set_data
-            # #data_dict[ "unlabeled_markers_count"] = unlabeled_markers_count
-            # data_dict[ "rigid_body_data"] = rigid_body_data
-            # data_dict[ "skeleton_data"] = skeleton_data
-            # data_dict[ "labeled_marker_data"] = labeled_marker_data
+            data_dict={}
+            data_dict["frame_number"]=frame_number
+            data_dict[ "marker_set_count"] = marker_set_count
+            data_dict[ "unlabeled_markers_count"] = unlabeled_markers_count
+            data_dict[ "rigid_body_count"] = rigid_body_count
+            data_dict[ "skeleton_count"] =skeleton_count
+            data_dict[ "labeled_marker_count"] = labeled_marker_count
+            data_dict[ "timecode"] = timecode
+            data_dict[ "timecode_sub"] = timecode_sub
+            data_dict[ "timestamp"] = timestamp
+            data_dict[ "is_recording"] = is_recording
+            data_dict[ "tracked_models_changed"] = tracked_models_changed
 
-            self.new_frame_listener( mocap_frame.get_data_dict() )
-        trace_mf( "MoCap Frame End\n-----------------" )
-        return offset, mocap_frame
+            self.new_frame_listener( data_dict )
+        return offset, mocap_data
+
 
     # Unpack a marker set description packet
     def __unpack_marker_set_description( self, data, major, minor):
@@ -807,11 +911,12 @@ class NatNetClient:
         marker_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
         trace_dd( "Marker Count : %3.1d" % marker_count)
-        for i in range( 0, marker_count ):
-            name, separator, remainder = bytes(data[offset:]).partition( b'\0' )
-            offset += len( name ) + 1
-            trace_dd( "\t%2.1d Marker Name: %s"%(i, name.decode( 'utf-8' ) ))
-            ms_desc.add_marker_name(name)
+        if(marker_count > 0):
+            for i in range( 0, marker_count ):
+                name, separator, remainder = bytes(data[offset:]).partition( b'\0' )
+                offset += len( name ) + 1
+                trace_dd( "\t%2.1d Marker Name: %s"%(i, name.decode( 'utf-8' ) ))
+                ms_desc.add_marker_name(name)
 
         return offset, ms_desc
 
@@ -877,11 +982,11 @@ class NatNetClient:
 
                 rb_marker=DataDescriptions.RBMarker(marker_name,active_label,marker_offset)
                 rb_desc.add_rb_marker(rb_marker)
-                trace_dd( "\t%3.1d Marker Label: %s Position: [%3.2f %3.2f %3.2f] %s" % (marker,active_label,\
+                trace_dd( "\t%3.1d Marker Label: %s Position: [x=%3.2f,y=%3.2f,z=%3.2f] %s" % (marker,active_label,\
                    marker_offset[0], marker_offset[1], marker_offset[2],marker_name ))
 
             offset = offset3
-
+        
         trace_dd("\tunpack_rigid_body_description processed bytes: ", offset)
         return offset, rb_desc
 
@@ -913,7 +1018,6 @@ class NatNetClient:
             offset_tmp, rb_desc_tmp = self.__unpack_rigid_body_description( data[offset:], major, minor )
             offset+= offset_tmp
             skeleton_desc.add_rigid_body_description(rb_desc_tmp)
-            
         return offset, skeleton_desc
 
     def __unpack_force_plate_description(self, data, major, minor):
@@ -1069,6 +1173,203 @@ class NatNetClient:
         camera_desc=DataDescriptions.CameraDescription(name, position, orientation)
         return offset, camera_desc
 
+
+    def __unpack_marker_description( self, data, major, minor ):
+        offset = 0
+
+        # Name
+        name, separator, remainder = bytes(data[offset:]).partition( b'\0' )
+        offset += len( name ) + 1
+        trace_dd( "\tName       : %s"% name.decode( 'utf-8' ) )
+
+        # ID
+        marker_id =  data[offset:offset+4]
+        offset += 4
+        trace_dd( "\tID         : %d"% (marker_id ))
+
+        # Initial Position
+        initialPosition = Vector3.unpack( data[offset:offset+12] )
+        offset += 12
+        trace_dd( "\tPosition   : [%3.2f, %3.2f, %3.2f]"% (initialPosition[0], initialPosition[1], initialPosition[2] ))
+
+        # Size
+        marker_size = FloatValue.unpack( data[offset:offset+4] )
+        offset += 4
+        trace_mf( "\tMarker Size:", marker_size )
+
+        # Params
+        marker_params, = struct.unpack( 'h', data[offset:offset+2] )
+        offset += 2
+        trace_mf( "\tParams     :", marker_params )
+
+        trace_dd("unpack_marker_description processed %3.1d bytes"% offset)
+
+        # Package for return object
+        marker_desc=DataDescriptions.MarkerDescription(name, marker_id, initialPosition, marker_size, marker_params)
+        return offset, marker_desc
+
+    def __unpack_asset_rigid_body_data( self, data, major, minor ):
+        offset = 0
+        # ID
+        rbID =  data[offset:offset+4]
+        offset += 4
+        trace_dd( "\tID         : %d"% (rbID ))
+
+        # Position: x,y,z
+        pos = Vector3.unpack( data[offset:offset+12] )
+        offset += 12
+        trace_mf( "\tPosition    : [%3.2f, %3.2f, %3.2f]"% (pos[0], pos[1], pos[2] ))
+
+        # Orientation: qx, qy, qz, qw
+        rot = Quaternion.unpack( data[offset:offset+16] )
+        offset += 16
+        trace_mf( "\tOrientation : [%3.2f, %3.2f, %3.2f, %3.2f]"% (rot[0], rot[1], rot[2], rot[3] ))
+
+        # Mean error
+        mean_error, = FloatValue.unpack( data[offset:offset+4] )
+        offset += 4
+        trace_mf( "\tMean Error  : %3.2f"% mean_error )
+
+        # Params
+        marker_params, = struct.unpack( 'h', data[offset:offset+2] )
+        offset += 2
+        trace_mf( "\tParams      :", marker_params )
+
+        trace_dd("unpack_marker_description processed %3.1d bytes"% offset)
+                
+        # Package for return object
+        rigid_body_data=MoCapData.AssetRigidBodyData(rbID, pos, rot, mean_error, marker_params)
+
+        return offset, rigid_body_data
+
+    def __unpack_asset_marker_data( self, data, major, minor ):
+        # ID
+        marker_id =  data[offset:offset+4]
+        offset += 4
+        trace_dd( "\tID          : %d"% (marker_id ))
+
+        # Position: x,y,z
+        pos = Vector3.unpack( data[offset:offset+12] )
+        offset += 12
+        trace_mf( "\tPosition    : [%3.2f, %3.2f, %3.2f]"% (pos[0], pos[1], pos[2] ))
+
+        # Size
+        marker_size, = FloatValue.unpack( data[offset:offset+4] )
+        offset += 4
+        trace_mf( "\tMarker Size : %3.2f"% marker_size )
+
+        # Params
+        marker_params, = struct.unpack( 'h', data[offset:offset+2] )
+        offset += 2
+        trace_mf( "\tParams      :", marker_params )
+
+        # Residual
+        residual, = FloatValue.unpack( data[offset:offset+4] )
+        offset += 4
+        trace_mf( "\tResidual    : %3.2f"% residual )
+
+        marker_data = DataDescriptions.AssetMarkerData(marker_id, pos, marker_size, marker_params, residual)
+        return offset, marker_data
+
+    def __unpack_asset_data( self, data, packet_size, major, minor):
+        asset_data = MoCapData.AssetData()
+
+        offset = 0
+
+        # Asset Count
+        asset_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
+        offset += 4
+        trace_mf( "Asset Count:", asset_count )
+
+        # Get data size (4 bytes)
+        offset_tmp, unpackedDataSize = self.__unpack_data_size(data[offset:],major, minor)
+        offset += offset_tmp
+
+        # Unpack assets 
+        for _ in range( 0, asset_count ):
+            # Asset ID 4 bytes
+            assetID =  data[offset:offset+4]
+            offset += 4
+            trace_dd( "\tAsset ID     : %d"% (assetID ))
+            asset_data.set_id(assetID)
+
+            # # of RigidBodies
+            numRBs =  data[offset:offset+4]
+            offset += 4
+            trace_dd( "\tRigid Bodies : %d" % (numRBs))
+        
+            offset1=0
+            for rbNum in range(numRBs):
+                # # of RigidBodies
+                offset1,rigid_body = self.__unpack_asset_rigid_body_data(data+offset, major, minor)
+                offset += offset1
+                asset_data.add_rigid_body(rigid_body)
+
+
+            # # of Markers
+            numMarkers =  data[offset:offset+4]
+            offset += 4
+            trace_dd( "\tMarkers      : %d" % (numMarkers))
+        
+            for markerNum in range(numMarkers):
+                # # of Markers
+                offset1,marker = self.__unpack_asset_marker_data( data+offset, major, minor)
+                offset += offset1
+                asset_data.add_marker(marker)
+
+        return offset, asset_data
+
+    def __unpack_asset_description(self, data, major, minor):
+        offset = 0
+
+        # Name
+        name, separator, remainder = bytes(data[offset:]).partition( b'\0' )
+        offset += len( name ) + 1
+        trace_dd( "\tName       : %s"% name.decode( 'utf-8' ) )
+
+        # Asset Type 4 bytes
+        assetType =  data[offset:offset+4]
+        offset += 4
+        trace_dd( "\tType       : %d"% (assetType ))
+
+        # ID 4 bytes
+        assetID =  data[offset:offset+4]
+        offset += 4
+        trace_dd( "\tID         : %d"% (assetID ))
+
+        # # of RigidBodies
+        numRBs =  data[offset:offset+4]
+        offset += 4
+        trace_dd( "\tNumber of RBs: %d" % (numRBs))
+        
+        rigidbodyArray=[]
+        offset1=0
+        for rbNum in range(numRBs):
+            # # of RigidBodies
+            offset1,rigidbody = self.__unpack_rigid_body_description(data+offset, major, minor)
+            offset += offset1
+            rigidbodyArray.append(rigidbody)
+
+
+        # # of Markers
+        numMarkers =  data[offset:offset+4]
+        offset += 4
+        trace_dd( "\tnumber of Markers: %d" % (numMarkers))
+        
+        markerArray=[]
+        for markerNum in range(numMarkers):
+            # # of Markers
+            offset1,marker = self.__unpack_marker_description( data+offset, major, minor)
+            offset += offset1
+            markerArray.append(marker)
+
+        trace_dd("unpack_asset_description processed %3.1d bytes"% offset)
+
+        # package for output
+        asset_desc=DataDescriptions.AssetDescription(name, assetType, assetID, rigidbodyArray, markerArray)
+        return offset, asset_desc
+
+
     # Unpack a data description packet
     def __unpack_data_descriptions( self, data : bytes, packet_size, major, minor):
         data_descs = DataDescriptions.DataDescriptions()
@@ -1100,8 +1401,11 @@ class NatNetClient:
             elif data_type == 5 :
                 trace_dd("Type: 5 Camera")
                 offset_tmp, data_tmp = self.__unpack_camera_description(data[offset:], major, minor)
+            elif data_type == 6 :
+                trace_dd("Type: 6 Asset")
+                offset_tmp, data_tmp = self.__unpack_asset_description(data[offset:], major, minor)
             else:
-                print("Type: " + str(data_type) + " UNKNOWN")
+                print("Type: Unknown " + str(data_type))
                 print("ERROR: Type decode failure" )
                 print("\t"+ str(i + 1) +" datasets processed of " + str(dataset_count))
                 print("\t "+ str(offset) +" bytes processed of " + str(packet_size) )
@@ -1111,18 +1415,6 @@ class NatNetClient:
             data_descs.add_data(data_tmp)
             trace_dd("\t"+ str(i) +" datasets processed of " + str(dataset_count))
             trace_dd("\t "+ str(offset) +" bytes processed of " + str(packet_size) )
-
-        # If listener provided, return description of each rigid body
-        if self.rigid_body_description_listener is not None:
-            num_rbs = len(data_descs.rigid_body_list)
-            for i in range(num_rbs):
-                self.rigid_body_description_listener(data_descs.rigid_body_list[i].get_description_dict())
-
-        # Likewise for skeleton descriptions
-        if self.skeleton_description_listener is not None:
-            num_sks = len(data_descs.skeleton_list)
-            for i in range(num_sks):
-                self.skeleton_description_listener(data_descs.skeleton_list[i].get_description_dict())
 
         return offset, data_descs
 
@@ -1153,6 +1445,16 @@ class NatNetClient:
         self.__nat_net_stream_version_server[3]=nnsvs[3]
         if (self.__nat_net_requested_version[0] == 0) and\
            (self.__nat_net_requested_version[1] == 0):
+            print("resetting requested version to %d %d %d %d from %d %d %d %d"%(
+                self.__nat_net_stream_version_server[0],
+                self.__nat_net_stream_version_server[1],
+                self.__nat_net_stream_version_server[2],
+                self.__nat_net_stream_version_server[3],
+                self.__nat_net_requested_version[0],
+                self.__nat_net_requested_version[1],
+                self.__nat_net_requested_version[2],
+                self.__nat_net_requested_version[3]))
+
             self.__nat_net_requested_version[0] = self.__nat_net_stream_version_server[0]
             self.__nat_net_requested_version[1] = self.__nat_net_stream_version_server[1]
             self.__nat_net_requested_version[2] = self.__nat_net_stream_version_server[2]
@@ -1174,6 +1476,19 @@ class NatNetClient:
             , str(self.__server_version[2]), " "
                 , str(self.__server_version[3]) )
         return offset
+
+    # __unpack_bitstream_info is for local use of the client
+    # and will update the values for the current bitstream
+    # of the server.
+
+    def __unpack_bitstream_info(self, data, packet_size, major, minor):
+        nn_version=[]
+        inString = data.decode('utf-8')
+        messageList = inString.split(',')
+        if( len(messageList) > 1 ):
+            if( messageList[0] == 'Bitstream'):
+                nn_version=messageList[1].split('.')
+        return nn_version
 
     def __command_thread_function( self, in_socket, stop, gprint_level):
         message_id_dict={}
@@ -1295,10 +1610,10 @@ class NatNetClient:
 
             offset_tmp, mocap_data = self.__unpack_mocap_data( data[offset:], packet_size, major, minor )
             offset += offset_tmp
+            print("MoCap Frame: %d\n"%(mocap_data.prefix_data.frame_number))
             # get a string version of the data for output
             mocap_data_str=mocap_data.get_as_string()
             if print_level >= 1:
-                print("MoCap Frame: %d\n"%(mocap_data.prefix_data.frame_number))
                 print("%s\n"%mocap_data_str)
 
         elif message_id == self.NAT_MODELDEF :
@@ -1306,10 +1621,10 @@ class NatNetClient:
             trace( "Packet Size : %d"% packet_size )
             offset_tmp, data_descs = self.__unpack_data_descriptions( data[offset:], packet_size, major, minor)
             offset += offset_tmp
+            print("Data Descriptions:\n")
             # get a string version of the data for output
             data_descs_str=data_descs.get_as_string()
             if print_level>0:
-                print("Data Descriptions:\n")
                 print("%s\n"%(data_descs_str))
 
         elif message_id == self.NAT_SERVERINFO :
@@ -1322,12 +1637,29 @@ class NatNetClient:
             trace( "Packet Size : ", packet_size )
             if packet_size == 4 :
                 command_response = int.from_bytes( data[offset:offset+4], byteorder='little' )
+                trace( "Command response: %d - %d %d %d %d"% (command_response,
+                                                             data[offset],
+                                                             data[offset+1],
+                                                             data[offset+2],
+                                                             data[offset+3]))
                 offset += 4
-                trace( "Command response: %d"% command_response )
             else:
                 show_remainder = False
                 message, separator, remainder = bytes(data[offset:]).partition( b'\0' )
+                if(len(message) < 30):
+                    tmpString = message.decode('utf-8')
+                    # Decode bitstream version
+                    if( tmpString.startswith('Bitstream') ):
+                        nn_version = self.__unpack_bitstream_info(data[offset:],packet_size, major, minor)
+                        # This is the current server version
+                        if(len(nn_version)>1):
+                            for i in range( len(nn_version) ):
+                                self.__nat_net_stream_version_server[i] = int(nn_version[i])
+                            for i in range( len(nn_version),4 ):
+                                self.__nat_net_stream_version_server[i] = 0
+                            
                 offset += len( message ) + 1
+
                 if(show_remainder):
                     trace( "Command response:", message.decode( 'utf-8' ),\
                         " separator:", separator, " remainder:",remainder )
@@ -1360,7 +1692,27 @@ class NatNetClient:
         elif command == self.NAT_REQUEST :
             packet_size = len( command_str ) + 1
         elif command == self.NAT_CONNECT :
-            command_str = "Ping"
+            tmp_version=[4,1,0,0]
+            print("NAT_CONNECT to Motive with %d %d %d %d\n"%(
+                tmp_version[0],
+                tmp_version[1],
+                tmp_version[2],
+                tmp_version[3]
+            ))
+            #allocate a byte array for 270 bytes
+            # to connect with a specific version
+            # The first 4 bytes spell out "Ping"
+            command_str = []
+            command_str = [0 for i in range(270)]
+            command_str[0] =80
+            command_str[1] =105
+            command_str[2] =110
+            command_str[3] =103
+            command_str[264] =0
+            command_str[265] =tmp_version[0]
+            command_str[266] =tmp_version[1]
+            command_str[267] =tmp_version[2]
+            command_str[268] =tmp_version[3]
             packet_size = len( command_str ) + 1
         elif command == self.NAT_KEEPALIVE:
             packet_size = 0
@@ -1369,12 +1721,16 @@ class NatNetClient:
         data = command.to_bytes( 2, byteorder='little' )
         data += packet_size.to_bytes( 2, byteorder='little' )
 
-        data += command_str.encode( 'utf-8' )
+        if command == self.NAT_CONNECT :
+            data+=bytearray(command_str)
+        else:
+            data += command_str.encode( 'utf-8' )
         data += b'\0'
 
         return in_socket.sendto( data, address )
 
     def send_command( self, command_str):
+        #print("Send command %s"%command_str)
         nTries = 3
         ret_val = -1
         while nTries:
@@ -1398,6 +1754,13 @@ class NatNetClient:
     def get_command_port(self):
         return self.command_port
 
+    def refresh_configuration(self):
+        #query for application configuration
+        #print("Request current configuration")
+        sz_command = "Bitstream"
+        return_code = self.send_command(sz_command)
+        time.sleep(0.5)
+
     def get_application_name(self):
         return self.__application_name
 
@@ -1409,6 +1772,7 @@ class NatNetClient:
 
     def get_server_version(self):
         return self.__server_version
+
 
 
     def run( self ):
@@ -1442,9 +1806,8 @@ class NatNetClient:
         ##Example Commands
         ## Get NatNet and server versions
         #self.send_request(self.command_socket, self.NAT_CONNECT, "", (self.server_ip_address, self.command_port) )
-        
         ## Request the model definitions
-        self.send_request(self.command_socket, self.NAT_REQUEST_MODELDEF, "",  (self.server_ip_address, self.command_port) )
+        #self.send_request(self.command_socket, self.NAT_REQUEST_MODELDEF, "",  (self.server_ip_address, self.command_port) )
         return True
 
     def shutdown(self):

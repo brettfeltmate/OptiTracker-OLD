@@ -104,7 +104,8 @@ struct_rb_description = {
 
 # Structures for Labeled Marker(s) description
 # --------------------------
-# NOTE: omg... they really are just markers with extra metadata...
+# TODO: omg... they're just regular markers with labels... but don't include the labels...
+# TODO: Refactor (non-rigid-body) markers into a shared structure/class
 # --------------------------
 
 # Structures for Force Plate(s) description

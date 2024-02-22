@@ -20,6 +20,10 @@ class dataUnpacker:
 
     # Fetch structure corresponding to asset type
     def _get_structure(self) -> Struct:
+        """
+        Returns the Struct corresponding to the type of this instance
+        from the FRAMEDATA_STRUCTS mapping.
+        """
         return FRAMEDATA_STRUCTS[type(self)]
     
     # Returns landing position in datastream after parsingg

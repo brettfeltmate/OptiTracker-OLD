@@ -45,12 +45,32 @@ def get_message_id(data: bytes) -> int:
 
 
 class NatNetClient:
+
+
+
+
+
     # print_level = 0 off
     # print_level = 1 on
     # print_level = >1 on / print every nth mocap frame
     print_level = 20
     
     def __init__( self ) -> None:
+        # Constants denoting asset types
+        PREFIX = "Prefix"
+        MARKER_SET = "MarkerSet"
+        LABELED_MARKER = "LabeledMarker"
+        LEGACY_MARKER_SET = "LegacyMarkerSet"
+        RIGID_BODY = "RigidBody"
+        SKELETON = "Skeleton"
+        ASSET_RIGID_BODY = "AssetRigidBody"
+        ASSET_MARKER = "AssetMarker"
+        FORCE_PLATE = "ForcePlate"
+        DEVICE = "Device"
+        CAMERA = "Camera"
+        SUFFIX = "Suffix"
+
+
         # Change this value to the IP address of the NatNet server.
         self.settings = {
             "server_ip": "127.0.0.1",
@@ -77,13 +97,36 @@ class NatNetClient:
             "can_change_bitstream_version": False
         }
 
-        self.listen_for = {
+        # Flags determining which assets to return in the frame data
+        self.return_frame_data = {
+            PREFIX: True,
+            MARKER_SET: True,
+            LABELED_MARKER: True,
+            LEGACY_MARKER_SET: True,
+            RIGID_BODY: True,
+            SKELETON: True,
+            ASSET_RIGID_BODY: True,
+            ASSET_MARKER: True,
+            FORCE_PLATE: False,
+            DEVICE: False,
+            CAMERA: True,
+            SUFFIX: True
+        } 
 
+        # Flags determining which assets to return in the data descriptions
+        self.return_description = {
+            MARKER_SET: True,
+            RIGID_BODY: True,
+            SKELETON: True,
+            FORCE_PLATE: False,
+            DEVICE: False,
+            CAMERA: True,
+            ASSET_RIGID_BODY: True,
+            ASSET_MARKER: True
         }
 
-        # Set this to a callback method of your choice to receive per-rigid-body data at each frame.
-        self.rigid_body_listener = None
-        self.new_frame_listener  = None
+        self.frame_data_listener = None
+        self.description_listener = None
 
         self.command_thread = None
         self.data_thread = None
@@ -243,8 +286,13 @@ class NatNetClient:
         for unpack_function in unpack_functions:
             offset += unpack_function(data, offset, NatNetStreamVersion)
 
-        # TODO: how to pass in include & exclude
-        self.frame_data.export()
+        frame = self.frame_data.export((
+            asset_type for asset_type in self.return_frame_data.keys() 
+            if self.return_frame_data[asset_type]
+        ))
+
+        self.frame_data_listener(frame)
+        
         return offset
 
 
@@ -333,8 +381,14 @@ class NatNetClient:
             else:
                 print(f"Description Decode Error | Supplied unknown asset type: {data_type}")
 
-        # TODO: how to pass in include & exclude
-        self.descriptions.export()
+
+        description = self.descriptions.export((
+            asset_type for asset_type in self.return_description.keys() 
+            if self.return_description[asset_type]
+        ))
+
+        self.description_listener(description)
+        
         return offset
 
 
@@ -447,7 +501,6 @@ class NatNetClient:
         return 264
 
     # For local use; updates server bitstream version
-    # TODO: something used this... but what... and why...
     def __unpack_bitstream_info(self, data: bytes) -> list[int]:
         nn_version=[]
         inString = data.decode('utf-8')
@@ -696,6 +749,7 @@ class NatNetClient:
         # Required for setup
         # Get NatNet and server versions
         self.send_request(self.command_socket, self.NAT_CONNECT, "",  (self.settings.server_ip, self.settings.command_port) )
+
 
 
         ##Example Commands

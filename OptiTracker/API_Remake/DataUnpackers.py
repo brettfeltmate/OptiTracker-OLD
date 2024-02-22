@@ -2,6 +2,7 @@
 
 from construct import Struct
 from .DataStructures import FRAMEDATA_STRUCTS
+from typing import Tuple, List, Dict, Union
 
 
 # # # # # # # # # # # # # # # # # # # # # # #
@@ -34,14 +35,14 @@ class dataUnpacker:
         return 0
     
     # Shadows Construct.Struct.parse() method
-    def parse(self, bytestream: bytes, offset: int, return_data: bool = True) -> list[dict] | None:
+    def parse(self, bytestream: bytes, offset: int, return_data: bool = True) -> Union[Tuple[Dict] | None]:
         self._framedata = self._structure.parse(bytestream[offset:])
         if return_data:
             self.export()
 
     # Coerces data parcels into list[dict]; bundling procedure varies by asset type
     #       NOTE: Children drop terminal entries (1 = obj addr, -1 = offset)
-    def export(self) -> list[dict]:
+    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
         raise NotImplementedError("AssetDataStruct.dump() | Must be implemented by child class.")
 
 
@@ -55,7 +56,7 @@ class prefixData(dataUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
         super().__init__(natnet_version, bytestream)     
         
-    def export(self) -> list[dict]:
+    def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(self._framedata.items())[1:-1])]
 
 
@@ -63,7 +64,7 @@ class markerSetData(dataUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
         super().__init__(natnet_version, bytestream)
 
-    def export(self) -> list[dict]:
+    def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(marker.items())[1:]) 
                                         for marker in self._framedata.children]
     
@@ -72,7 +73,7 @@ class labeledMarkerData(dataUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
         super().__init__(natnet_version, bytestream)
 
-    def export(self) -> list[dict]:
+    def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(self._framedata.items())[1:-1])]
 
 
@@ -80,7 +81,7 @@ class legacyMarkerSetData(dataUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
         super().__init__(natnet_version, bytestream)
 
-    def export(self) -> list[dict]:
+    def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(legacyMarker.items())[1:]) 
                                         for legacyMarker in self._framedata.children]
 
@@ -89,7 +90,7 @@ class rigidBodyData(dataUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
         super().__init__(natnet_version, bytestream)
 
-    def export(self) -> list[dict]:
+    def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(self._framedata.items())[1:-1])]
 
 
@@ -97,7 +98,7 @@ class skeletonData(dataUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
         super().__init__(natnet_version, bytestream)
 
-    def export(self) -> list[dict]:
+    def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(rigidBody.items())[1:-1]) 
                                         for rigidBody in self._framedata.children]
     
@@ -105,7 +106,7 @@ class assetData(dataUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
         super().__init__(natnet_version, bytestream)
 
-    def export(self, asset_type) -> list[dict]:
+    def export(self, asset_type) ->Tuple[int, Tuple[Dict, ...]]:
         if (asset_type == "AssetRigidBodies"):
             return self.relative_offset(), [dict(list(assetRigidBody.items())[1:]) 
                                             for assetRigidBody in self._framedata.rigid_bodies]
@@ -121,7 +122,7 @@ class forcePlateData(dataUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
         super().__init__(natnet_version, bytestream)
 
-    def export(self) -> list[dict]:
+    def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(frame.items())[1:]) 
                                         for channel in self._framedata.children 
                                         for frame in channel.children]
@@ -131,7 +132,7 @@ class deviceData(dataUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
         super().__init__(natnet_version, bytestream)
 
-    def export(self) -> list[dict]:
+    def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(frame.items())[1:]) 
                                         for channel in self._framedata.children
                                         for frame in channel.children]
@@ -141,8 +142,8 @@ class suffixData(dataUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
         super().__init__(natnet_version, bytestream)
 
-    def export(self) -> list[dict]:
-        return self.relative_offset(), [dict(list(self._framedata.items())[1:-1])]
+    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
+        return self.relative_offset(), tuple(dict(list(self._framedata.items())[1:-1]))
     
 
 
@@ -155,46 +156,36 @@ class frameData:
         
         # Aggregate Frame Data
         self._framedata = {
-            'Prefix': None, 
-            'MarkerSet': None, 
-            'LabeledMarker': None,
-            'LegacyMarkerSet': None,
-            'RigidBody': None, 
-            'Skeleton': None,
-            'AssetRigidBody': None,
-            'AssetMarker': None,
-            'ForcePlate': None, 
-            'Devices': None, 
-            'Suffix': None
+            'Prefix': (), 
+            'MarkerSet': (), 
+            'LabeledMarker': (),
+            'LegacyMarkerSet': (),
+            'RigidBody': (), 
+            'Skeleton': (),
+            'AssetRigidBody': (),
+            'AssetMarker': (),
+            'ForcePlate': (), 
+            'Devices': (), 
+            'Suffix': ()
         }
-    
+
     # Log frame data for a given asset type
-    def log(self, asset_type: str, asset_data: list[dict]) -> None:
-        self._framedata[asset_type] = asset_data
+    def __validate_export_arg(self, arg: Union[Tuple[str,...] | str], name: str) -> Tuple[str, ...]:
+        if isinstance(arg, str):
+            return (arg,)
+        elif isinstance(arg, tuple) and all(isinstance(i, str) for i in arg):
+            return arg
+        else:
+            raise TypeError(f"frameData.export() | {name} must be str or tuple thereof")
 
     # Export frame data for desired asset types; also allows for omission
-    def export(self, include: list = None, exclude: list = None) -> dict[list]:
-        # Check if include or exclude are anything but str or list
-        if not (isinstance(include, str) or isinstance(include, list)):
-            raise TypeError("include must be str or list")
-        
-        if not (isinstance(exclude, str) or isinstance(exclude, list)):
-            raise TypeError("exclude must be str or list")
+    def export(self, include: Union[Tuple[str, ...] | str], exclude: Union[Tuple[str, ...] | str] = None) -> Dict[Tuple[Dict, ...]]:
+        include = self.__validate_export_arg(include, "include")
 
-        if isinstance(include, str):
-            include = [include]
-
-        if isinstance(exclude, str):
-            exclude = [exclude]
-
-        if include is not None and exclude is not None:
-                return {k: v for k, v in self._framedata.items() if k in include and k not in exclude}
-        
-        if include is not None:
-            return {k: v for k, v in self._framedata.items() if k in include}
-        
         if exclude is not None:
-            return {k: v for k, v in self._framedata.items() if k not in exclude}
+            exclude = self.__validate_export_arg(exclude, "exclude")
+            return {k: v for k, v in self._framedata.items() 
+                    if k in include and k not in exclude}
             
-        return self._framedata
+        return {k: v for k, v in self._framedata.items() if k in include}
 

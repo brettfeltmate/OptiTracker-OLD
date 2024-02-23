@@ -10,7 +10,7 @@ from typing import Tuple, List, Dict, Union
 # # # # # # # # # # # # # # # # # # # # # # #
 
 class dataUnpacker:
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         self.natnet_version = NatNetStreamVersion      # Unlikely to be implemented
         self._structure = self._get_structure()   # Bespoke Asset-specific Construct Structure
         self._framedata = None                         # Container for parsed data
@@ -53,7 +53,7 @@ class dataUnpacker:
 # # # # # # # # # # # # # # 
     
 class prefixData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)     
         
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
@@ -61,7 +61,7 @@ class prefixData(dataUnpacker):
 
 
 class markerSetData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
@@ -70,7 +70,7 @@ class markerSetData(dataUnpacker):
     
 
 class labeledMarkerData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
@@ -78,7 +78,7 @@ class labeledMarkerData(dataUnpacker):
 
 
 class legacyMarkerSetData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
@@ -87,7 +87,7 @@ class legacyMarkerSetData(dataUnpacker):
 
 
 class rigidBodyData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
@@ -95,7 +95,7 @@ class rigidBodyData(dataUnpacker):
 
 
 class skeletonData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
@@ -103,7 +103,7 @@ class skeletonData(dataUnpacker):
                                         for rigidBody in self._framedata.children]
     
 class assetData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self, asset_type) ->Tuple[int, Tuple[Dict, ...]]:
@@ -119,7 +119,7 @@ class assetData(dataUnpacker):
 
 
 class forcePlateData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
@@ -129,7 +129,7 @@ class forcePlateData(dataUnpacker):
 
 
 class deviceData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
@@ -139,7 +139,7 @@ class deviceData(dataUnpacker):
 
 
 class suffixData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) -> Tuple[int, Tuple[Dict, ...]]:

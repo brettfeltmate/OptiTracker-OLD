@@ -20,7 +20,7 @@ from threading import Thread
 import time
 from DataUnpackers import *
 from DescriptionUnpackers import *
-from typing import Any, Union, Dict, List, Tuple, int
+from typing import Any, Union, List, Tuple, int
 
 def trace( *args ):
     # uncomment the one you want to use
@@ -39,8 +39,8 @@ def trace_mf( *args ):
     #print( "".join(map(str,args)) )
     pass
 
-def get_message_id(data: bytes) -> int:
-    message_id = int.from_bytes( data[0:2], byteorder='little' )
+def get_message_id(bytestream: bytes) -> int:
+    message_id = int.from_bytes( bytestream[0:2], byteorder='little' )
     return message_id
 
 
@@ -156,117 +156,117 @@ class NatNetClient:
     # Functions for unpacking frame data, called by __unpack_frame_data #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-    def __unpack_asset_count_and_size(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> Tuple[int, int, int]:
-        asset_count = int.from_bytes( data[offset:offset+4], byteorder='little')
+    def __unpack_asset_count_and_size(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> Tuple[int, int, int]:
+        asset_count = int.from_bytes( bytestream[offset:offset+4], byteorder='little')
         offset += 4
-        asset_bytesize = int.from_bytes( data[offset:offset+4], byteorder='little')
+        asset_bytesize = int.from_bytes( bytestream[offset:offset+4], byteorder='little')
         offset += 4
 
         return offset, asset_count, asset_bytesize
     
-    def __unpack_prefix_data(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        prefix_data = prefixData(data, offset, NatNetStreamVersion)
+    def __unpack_prefix_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+        prefix_data = prefixData(bytestream, offset, NatNetStreamVersion)
         self.frame_data.log("Prefix", prefix_data.export())
         offset += prefix_data.relative_offset()
 
         return offset
 
-    def __unpack_legacy_marker_sets_data(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_legacy_marker_sets, _ = self.__unpack_asset_count_and_size(data, offset, NatNetStreamVersion)
+    def __unpack_legacy_marker_sets_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+        relative_offset, num_legacy_marker_sets, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
         offset += relative_offset
 
         for i in range( 0, num_legacy_marker_sets ):
-            legacy_marker_set_data = legacyMarkerSetData(data, offset, NatNetStreamVersion)
+            legacy_marker_set_data = legacyMarkerSetData(bytestream, offset, NatNetStreamVersion)
             self.frame_data.log("LegacyMarkerSet", legacy_marker_set_data.export())
             offset += legacy_marker_set_data.relative_offset()
  
         return offset
 
-    def __unpack_labeled_marker_data(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_labeled_markers, _ = self.__unpack_asset_count_and_size(data, offset, NatNetStreamVersion)
+    def __unpack_labeled_marker_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+        relative_offset, num_labeled_markers, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
         offset += relative_offset
 
         for i in range( 0, num_labeled_markers ):
-            labeled_marker_data = labeledMarkerData(data, offset, NatNetStreamVersion)
+            labeled_marker_data = labeledMarkerData(bytestream, offset, NatNetStreamVersion)
             self.frame_data.log("LabeledMarker", labeled_marker_data.export())
             offset += labeled_marker_data.relative_offset()
 
         return offset
     
-    def __unpack_marker_sets_data(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_marker_sets, _ = self.__unpack_asset_count_and_size(data, offset, NatNetStreamVersion)
+    def __unpack_marker_sets_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+        relative_offset, num_marker_sets, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
         offset += relative_offset
 
         for i in range( 0, num_marker_sets ):
-            marker_set_data = markerSetData(data, offset, NatNetStreamVersion)
+            marker_set_data = markerSetData(bytestream, offset, NatNetStreamVersion)
             self.frame_data.log("MarkerSet", marker_set_data.export())
             offset += marker_set_data.relative_offset()
 
         return offset
 
-    def __unpack_rigid_bodies_data(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_rigid_bodies, _ = self.__unpack_asset_count_and_size(data, offset, NatNetStreamVersion)
+    def __unpack_rigid_bodies_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+        relative_offset, num_rigid_bodies, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
         offset += relative_offset
 
         for i in range( 0, num_rigid_bodies ):
-            rigid_body_data = rigidBodyData(data, offset, NatNetStreamVersion)
+            rigid_body_data = rigidBodyData(bytestream, offset, NatNetStreamVersion)
             self.frame_data.log("RigidBody", rigid_body_data.export())
             offset += rigid_body_data.relative_offset()
 
         return offset
 
-    def __unpack_skeletons_data(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_skeletons, _ = self.__unpack_asset_count_and_size(data, offset, NatNetStreamVersion)
+    def __unpack_skeletons_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+        relative_offset, num_skeletons, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
         offset += relative_offset
 
         for i in range( 0, num_skeletons ):
-            skeleton_data = skeletonData(data[offset:])
+            skeleton_data = skeletonData(bytestream[offset:])
             self.frame_data.log("Skeleton", skeleton_data.export())
             offset += skeleton_data.relative_offset()
 
         return offset
 
-    def __unpack_assets_data(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_assets, _ = self.__unpack_asset_count_and_size(data, offset, NatNetStreamVersion)
+    def __unpack_assets_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+        relative_offset, num_assets, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
         offset += relative_offset
 
         for i in range( 0, num_assets ):
-            asset_data = assetData(data, offset, NatNetStreamVersion)
+            asset_data = assetData(bytestream, offset, NatNetStreamVersion)
             self.frame_data.log("Asset", asset_data.export())
             offset += asset_data.relative_offset()
 
         return offset
 
-    def __unpack_force_plates_data(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_force_plates, _ = self.__unpack_asset_count_and_size(data, offset, NatNetStreamVersion)
+    def __unpack_force_plates_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+        relative_offset, num_force_plates, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
         offset += relative_offset
 
         for i in range( 0, num_force_plates ):
-            force_plate_data = forcePlateData(data[offset:])
+            force_plate_data = forcePlateData(bytestream[offset:])
             self.frame_data.log("ForcePlate", force_plate_data.export())
             offset += force_plate_data.relative_offset()
 
         return offset
 
-    def __unpack_devices_data(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_devices, _ = self.__unpack_asset_count_and_size(data, offset, NatNetStreamVersion)
+    def __unpack_devices_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+        relative_offset, num_devices, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
         offset += relative_offset
 
         for i in range( 0, num_devices ):
-            device_data = deviceData(data[offset:])
+            device_data = deviceData(bytestream[offset:])
             self.frame_data.log("Device", device_data.export())
             offset += device_data.relative_offset()
 
         return offset
 
-    def __unpack_frame_suffix_data(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        frame_suffix_data = suffixData(data, offset, NatNetStreamVersion)
+    def __unpack_frame_suffix_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+        frame_suffix_data = suffixData(bytestream, offset, NatNetStreamVersion)
         self.frame_data.log("Suffix", frame_suffix_data.export())
         offset += frame_suffix_data.relative_offset()
 
         return offset
 
-    def __unpack_frame_data(self, data: bytes, offset: int = 4, NatNetStreamVersion: List[int] = None) -> int:
+    def __unpack_frame_data(self, bytestream: bytes, offset: int = 4, NatNetStreamVersion: List[int] = None) -> int:
         data = memoryview(data)
         self.frame_data = frameData()
 
@@ -284,11 +284,11 @@ class NatNetClient:
         ]
 
         for unpack_function in unpack_functions:
-            offset += unpack_function(data, offset, NatNetStreamVersion)
+            offset += unpack_function(bytestream, offset, NatNetStreamVersion)
 
         frame = self.frame_data.export((
             asset_type for asset_type in self.return_frame_data.keys() 
-            if self.return_frame_data[asset_type]
+            if self.return_frame_bytestream[asset_type]
         ))
 
         self.frame_data_listener(frame)
@@ -299,67 +299,67 @@ class NatNetClient:
     # Functions for unpacking descriptions, called by __unpack_descriptions #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-    def __unpack_marker_set_description(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+    def __unpack_marker_set_description(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
         # offset += 4
-        marker_set_desc = markerSetDescription(data, offset, NatNetStreamVersion)
+        marker_set_desc = markerSetDescription(bytestream, offset, NatNetStreamVersion)
         self.descriptions.log("MarkerSet", marker_set_desc.export())
         offset += marker_set_desc.relative_offset()
 
         return offset
 
-    def __unpack_rigid_body_description(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+    def __unpack_rigid_body_description(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
         # offset += 4
-        rigid_body_desc = rigidBodyDescription(data, offset, NatNetStreamVersion)
+        rigid_body_desc = rigidBodyDescription(bytestream, offset, NatNetStreamVersion)
         self.descriptions.log("RigidBody", rigid_body_desc.export())
         offset += rigid_body_desc.relative_offset()
 
         return offset
 
-    def __unpack_skeleton_description(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+    def __unpack_skeleton_description(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
         # offset += 4
-        skeleton_desc = skeletonDescription(data, offset, NatNetStreamVersion)
+        skeleton_desc = skeletonDescription(bytestream, offset, NatNetStreamVersion)
         self.descriptions.log("Skeleton", skeleton_desc.export())
         offset += skeleton_desc.relative_offset()
 
         return offset
 
-    def __unpack_force_plate_description(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+    def __unpack_force_plate_description(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
         # offset += 4
-        force_plate_desc = forcePlateDescription(data, offset, NatNetStreamVersion)
+        force_plate_desc = forcePlateDescription(bytestream, offset, NatNetStreamVersion)
         self.descriptions.log("ForcePlate", force_plate_desc.export())
         offset += force_plate_desc.relative_offset()
     
         return offset
 
-    def __unpack_device_description(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+    def __unpack_device_description(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
         # offset += 4
-        device_desc = deviceDescription(data, offset, NatNetStreamVersion)
+        device_desc = deviceDescription(bytestream, offset, NatNetStreamVersion)
         self.descriptions.log("Device", device_desc.export())
         offset += device_desc.relative_offset()
 
         return offset
 
-    def __unpack_camera_description(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+    def __unpack_camera_description(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
         # offset += 4
-        camera_desc = cameraDescription(data, offset, NatNetStreamVersion)
+        camera_desc = cameraDescription(bytestream, offset, NatNetStreamVersion)
         self.descriptions.log("Camera", camera_desc.export())
         offset += camera_desc.relative_offset()
 
         return offset
 
-    def __unpack_asset_description(self, data: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+    def __unpack_asset_description(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
         # offset += 4
-        asset_desc = assetDescription(data, offset, NatNetStreamVersion)
+        asset_desc = assetDescription(bytestream, offset, NatNetStreamVersion)
         self.descriptions.log("Asset", asset_desc.export())
         offset += asset_desc.relative_offset()
 
         return offset
 
-    def __unpack_descriptions(self, data: bytes, offset: int = 4, NatNetStreamVersion: List[int] = None) -> int:
+    def __unpack_descriptions(self, bytestream: bytes, offset: int = 4, NatNetStreamVersion: List[int] = None) -> int:
         self.descriptions = Descriptions()
         
         # # of data sets to process
-        dataset_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
+        dataset_count = int.from_bytes( bytestream[offset:offset+4], byteorder='little' )
         offset += 4
 
         unpack_functions = {
@@ -373,11 +373,11 @@ class NatNetClient:
         }
 
         for i in range( 0, dataset_count ):
-            data_type = int.from_bytes( data[offset:offset+4], byteorder='little' )
+            data_type = int.from_bytes( bytestream[offset:offset+4], byteorder='little' )
             offset += 4
 
             if data_type in unpack_functions:
-                offset += unpack_functions[data_type](data, offset, NatNetStreamVersion)
+                offset += unpack_functions[data_type](bytestream, offset, NatNetStreamVersion)
             else:
                 print(f"Description Decode Error | Supplied unknown asset type: {data_type}")
 
@@ -396,16 +396,16 @@ class NatNetClient:
     # Private Utility functions #
     # # # # # # # # # # # # # # #
 
-    def __handle_response_message(self, data: bytes, offset: int, packet_size: int, message_id: int) -> int:
+    def __handle_response_message(self, bytestream: bytes, offset: int, packet_size: int, message_id: int) -> int:
         if message_id == self.NAT_RESPONSE:
             if packet_size == 4:
-                command_response = int.from_bytes(data[offset:offset+4], byteorder='little')
-                trace(f"Command response: {command_response} - {[data[offset+i] for i in range(4)]}")
+                command_response = int.from_bytes(bytestream[offset:offset+4], byteorder='little')
+                trace(f"Command response: {command_response} - {[bytestream[offset+i] for i in range(4)]}")
                 offset += 4
             else:
-                message, _, _ = bytes(data[offset:]).partition(b'\0')
+                message, _, _ = bytes(bytestream[offset:]).partition(b'\0')
                 if message.decode('utf-8').startswith('Bitstream'):
-                    nn_version = self.__unpack_bitstream_info(data[offset:], packet_size)
+                    nn_version = self.__unpack_bitstream_info(bytestream[offset:], packet_size)
                     # Update the server version
                     self.settings.nat_net_stream_version_server = [int(v) for v in nn_version] + [0]*(4 - len(nn_version))
                 trace(f"Command response: {message.decode('utf-8')}")
@@ -415,7 +415,7 @@ class NatNetClient:
             trace(f"Packet Size: {packet_size}")
         elif message_id == self.NAT_MESSAGESTRING:
             trace(f"Message ID:{message_id:.1f} (NAT_MESSAGESTRING), Packet Size: {packet_size}")
-            message, _, _ = bytes(data[offset:]).partition(b'\0')
+            message, _, _ = bytes(bytestream[offset:]).partition(b'\0')
             trace(f"\n\tReceived message from server: {message.decode('utf-8')}")
             offset += len(message) + 1
 
@@ -478,16 +478,16 @@ class NatNetClient:
         return None
 
     # For local use; updates NatNet version and server capabilities
-    def __unpack_server_info(self, data: bytes) -> 264:
+    def __unpack_server_info(self, bytestream: bytes) -> 264:
         # Server name
-        self.settings.application_name, _, _ = bytes(data[:256]).partition(b'\0')
+        self.settings.application_name, _, _ = bytes(bytestream[:256]).partition(b'\0')
         self.settings.application_name = str(self.settings.application_name, "utf-8")
 
         # Server Version info
-        self.settings.server_version = struct.unpack('BBBB', data[256:260])
+        self.settings.server_version = struct.unpack('BBBB', bytestream[256:260])
 
         # NatNet Version info
-        self.settings.nat_net_stream_version_server = struct.unpack('BBBB', data[260:264])
+        self.settings.nat_net_stream_version_server = struct.unpack('BBBB', bytestream[260:264])
 
         if self.settings.nat_net_requested_version[:2] == [0, 0]:
             print(f"Resetting requested version to {self.settings.nat_net_stream_version_server} from {self.settings.nat_net_requested_version}")
@@ -501,9 +501,9 @@ class NatNetClient:
         return 264
 
     # For local use; updates server bitstream version
-    def __unpack_bitstream_info(self, data: bytes) -> list[int]:
+    def __unpack_bitstream_info(self, bytestream: bytes) -> list[int]:
         nn_version=[]
-        inString = data.decode('utf-8')
+        inString = bytestream.decode('utf-8')
         messageList = inString.split(',')
         if( len(messageList) > 1 ):
             if( messageList[0] == 'Bitstream'):
@@ -528,7 +528,7 @@ class NatNetClient:
                     print("shutting down")
                 return 1
 
-            if data:
+            if bytestream:
                 # peek ahead at message_id
                 message_id = get_message_id(data)
                 tmp_str = f"mi_{message_id:.1f}"
@@ -560,7 +560,7 @@ class NatNetClient:
                     print(f"ERROR: data socket access error occurred:\n{e}")
                 return 1
 
-            if data:
+            if bytestream:
                 # peek ahead at message_id
                 message_id = get_message_id(data)
                 tmp_str = f"mi_{message_id:.1f}"
@@ -575,24 +575,24 @@ class NatNetClient:
 
         return 0
 
-    def __process_message(self, data: bytes) -> int:
+    def __process_message(self, bytestream: bytes) -> int:
         message_id = get_message_id(data)
-        packet_size = int.from_bytes(data[2:4], byteorder='little')
+        packet_size = int.from_bytes(bytestream[2:4], byteorder='little')
 
         # skip the 4 bytes for message ID and packet_size
         offset = 4
-        if message_id == self.NAT_FRAMEOFDATA:
-            offset += self.__unpack_frame_data(data, offset, NatNetStreamVersion=None)
+        if message_id == self.NAT_FRAMEOFbytestream:
+            offset += self.__unpack_frame_data(bytestream, offset, NatNetStreamVersion=None)
 
         elif message_id == self.NAT_MODELDEF:
-            offset += self.__unpack_descriptions(data, offset, NatNetStreamVersion=None)
+            offset += self.__unpack_descriptions(bytestream, offset, NatNetStreamVersion=None)
 
         elif message_id == self.NAT_SERVERINFO:
             trace(f"Message ID: {message_id:.1f} (NAT_SERVERINFO), packet size: {packet_size}")
-            offset += self.__unpack_server_info(data[offset:])
+            offset += self.__unpack_server_info(bytestream[offset:])
 
         elif message_id in [self.NAT_RESPONSE, self.NAT_UNRECOGNIZED_REQUEST, self.NAT_MESSAGESTRING]:
-            offset = self.__handle_response_message(data, offset, packet_size, message_id)
+            offset = self.__handle_response_message(bytestream, offset, packet_size, message_id)
         
         else:
             trace(f"Message ID: {message_id:.1f} (UNKNOWN)")

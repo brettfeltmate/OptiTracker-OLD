@@ -5,7 +5,7 @@ from typing import List, Dict, Union, Tuple
 from .DescriptionStructures import DESCRIPTION_STRUCTS
 
 class descriptionUnpacker:
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         self.natnet_version = NatNetStreamVersion        # Determines which structure to use
         self._structure = self._get_structure()     # Asset specific Construct Struct
         self._description = None                           # To store parsed description
@@ -50,7 +50,7 @@ class descriptionUnpacker:
     
 # Parses N-i MarkerSets, each composed of N-j Markers
 class markerSetDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) -> Tuple[int, Tuple[Dict, ...]]:
@@ -60,7 +60,7 @@ class markerSetDescription(descriptionUnpacker):
 
 # Parses N-i RigidBodies NOT integral to skeletons, each composed of N-j RigidBody(s)
 class rigidBodyDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) -> Tuple[int, Tuple[Dict, ...]]:
@@ -69,7 +69,7 @@ class rigidBodyDescription(descriptionUnpacker):
     
 # Parses N-i Skeletons, each composed of N-j RigidBodies, each composed of N-k RigidBody(s)
 class skeletonDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) -> Tuple[int, Tuple[Dict, ...]]:
@@ -79,7 +79,7 @@ class skeletonDescription(descriptionUnpacker):
     
 
 class assetDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self, asset_type: str) -> Tuple[int, Tuple[Dict, ...]]:
@@ -95,7 +95,7 @@ class assetDescription(descriptionUnpacker):
     
 # Parses N-i ForcePlates, each plate composed of N-j Channel(s)
 class forcePlateDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) -> Tuple[int, Tuple[Dict, ...]]:
@@ -108,7 +108,7 @@ class forcePlateDescription(descriptionUnpacker):
 
 # Parses N-i Devices, each device composed of N-j Channel(s)
 class deviceDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) -> Tuple[int, Tuple[Dict, ...]]:
@@ -118,7 +118,7 @@ class deviceDescription(descriptionUnpacker):
     
 
 class cameraDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) -> Tuple[int, Tuple[Dict, ...]]:

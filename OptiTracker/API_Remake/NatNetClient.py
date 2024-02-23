@@ -18,9 +18,11 @@ import socket
 import struct
 from threading import Thread
 import time
-from DataUnpackers import *
-from DescriptionUnpackers import *
-from typing import Any, Union, List, Tuple, int
+from .DataUnpackers import *
+from .DescriptionUnpackers import *
+from typing import Any, Union, List, Tuple, Callable
+
+from pprint import pprint
 
 def trace( *args ):
     # uncomment the one you want to use
@@ -50,12 +52,16 @@ class NatNetClient:
 
 
 
+
     # print_level = 0 off
     # print_level = 1 on
     # print_level = >1 on / print every nth mocap frame
     print_level = 20
     
     def __init__( self ) -> None:
+
+        self.frame_num = 1
+        self.desc_num = 1
         # Constants denoting asset types
         PREFIX = "Prefix"
         MARKER_SET = "MarkerSet"
@@ -151,7 +157,18 @@ class NatNetClient:
     NAT_UNRECOGNIZED_REQUEST  = 100
     NAT_UNDEFINED             = 999999.9999
 
-
+    PREFIX = "Prefix"
+    MARKER_SET = "MarkerSet"
+    LABELED_MARKER = "LabeledMarker"
+    LEGACY_MARKER_SET = "LegacyMarkerSet"
+    RIGID_BODY = "RigidBody"
+    SKELETON = "Skeleton"
+    ASSET_RIGID_BODY = "AssetRigidBody"
+    ASSET_MARKER = "AssetMarker"
+    FORCE_PLATE = "ForcePlate"
+    DEVICE = "Device"
+    CAMERA = "Camera"
+    SUFFIX = "Suffix"
 
     # Functions for unpacking frame data, called by __unpack_frame_data #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -167,24 +184,29 @@ class NatNetClient:
     def __unpack_prefix_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
         prefix_data = prefixData(bytestream, offset, NatNetStreamVersion)
         self.frame_data.log("Prefix", prefix_data.export())
+
+        print(f'\n\nPrefix log:\n')
+        pprint(self.frame_data._framedata['Prefix'])
+
         offset += prefix_data.relative_offset()
 
         return offset
 
     def __unpack_legacy_marker_sets_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_legacy_marker_sets, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
-        offset += relative_offset
+        # offset, num_legacy_marker_sets, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
+        # print(f"\n\nnum_legacy: {num_legacy_marker_sets}\n\n")
 
-        for i in range( 0, num_legacy_marker_sets ):
-            legacy_marker_set_data = legacyMarkerSetData(bytestream, offset, NatNetStreamVersion)
-            self.frame_data.log("LegacyMarkerSet", legacy_marker_set_data.export())
-            offset += legacy_marker_set_data.relative_offset()
+        # for i in range( 0, num_legacy_marker_sets ):
+        legacy_marker_set_data = legacyMarkerSetData(bytestream, offset, NatNetStreamVersion)
+        self.frame_data.log("LegacyMarkerSet", legacy_marker_set_data.export())
+        pprint(self.frame_data._framedata["LegacyMarkerSet"])
+        offset += legacy_marker_set_data.relative_offset()
  
         return offset
 
     def __unpack_labeled_marker_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_labeled_markers, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
-        offset += relative_offset
+        offset, num_labeled_markers, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
+
 
         for i in range( 0, num_labeled_markers ):
             labeled_marker_data = labeledMarkerData(bytestream, offset, NatNetStreamVersion)
@@ -194,8 +216,12 @@ class NatNetClient:
         return offset
     
     def __unpack_marker_sets_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_marker_sets, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
-        offset += relative_offset
+        print(f'\n\n\nunpack_marker_sets_data; passed offset = {offset}\n\n\n')
+        
+        offset, num_marker_sets, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
+  
+
+        print(f'\n\nnum_marker_sets: {num_marker_sets}\n\n')
 
         for i in range( 0, num_marker_sets ):
             marker_set_data = markerSetData(bytestream, offset, NatNetStreamVersion)
@@ -205,8 +231,8 @@ class NatNetClient:
         return offset
 
     def __unpack_rigid_bodies_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_rigid_bodies, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
-        offset += relative_offset
+        offset, num_rigid_bodies, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
+
 
         for i in range( 0, num_rigid_bodies ):
             rigid_body_data = rigidBodyData(bytestream, offset, NatNetStreamVersion)
@@ -216,8 +242,8 @@ class NatNetClient:
         return offset
 
     def __unpack_skeletons_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_skeletons, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
-        offset += relative_offset
+        offset, num_skeletons, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
+
 
         for i in range( 0, num_skeletons ):
             skeleton_data = skeletonData(bytestream[offset:])
@@ -227,8 +253,8 @@ class NatNetClient:
         return offset
 
     def __unpack_assets_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_assets, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
-        offset += relative_offset
+        offset, num_assets, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
+
 
         for i in range( 0, num_assets ):
             asset_data = assetData(bytestream, offset, NatNetStreamVersion)
@@ -238,8 +264,8 @@ class NatNetClient:
         return offset
 
     def __unpack_force_plates_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_force_plates, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
-        offset += relative_offset
+        offset, num_force_plates, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
+
 
         for i in range( 0, num_force_plates ):
             force_plate_data = forcePlateData(bytestream[offset:])
@@ -249,8 +275,8 @@ class NatNetClient:
         return offset
 
     def __unpack_devices_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
-        relative_offset, num_devices, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
-        offset += relative_offset
+        offset, num_devices, _ = self.__unpack_asset_count_and_size(bytestream, offset, NatNetStreamVersion)
+
 
         for i in range( 0, num_devices ):
             device_data = deviceData(bytestream[offset:])
@@ -266,8 +292,14 @@ class NatNetClient:
 
         return offset
 
-    def __unpack_frame_data(self, bytestream: bytes, offset: int = 4, NatNetStreamVersion: List[int] = None) -> int:
-        data = memoryview(data)
+    def __unpack_frame_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
+        bytestream = memoryview(bytestream)
+
+        with open(f"frame_data_bytestream_{self.frame_num}.bin", 'wb') as f:
+            f.write(bytestream)
+
+        self.frame_num += 1
+
         self.frame_data = frameData()
 
         unpack_functions = [
@@ -284,14 +316,16 @@ class NatNetClient:
         ]
 
         for unpack_function in unpack_functions:
-            offset += unpack_function(bytestream, offset, NatNetStreamVersion)
+            offset = unpack_function(bytestream, offset, NatNetStreamVersion)
 
-        frame = self.frame_data.export((
-            asset_type for asset_type in self.return_frame_data.keys() 
-            if self.return_frame_bytestream[asset_type]
-        ))
+        # frame = self.frame_data.export((
+        #     asset_type for asset_type in self.return_frame_data.keys() 
+        #     if self.return_frame_data[asset_type]
+        # ))
+            
 
-        self.frame_data_listener(frame)
+
+        self.frame_data_listener(self.frame_data.export())
         
         return offset
 
@@ -355,8 +389,11 @@ class NatNetClient:
 
         return offset
 
-    def __unpack_descriptions(self, bytestream: bytes, offset: int = 4, NatNetStreamVersion: List[int] = None) -> int:
+    def __unpack_descriptions(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
         self.descriptions = Descriptions()
+
+        with open(f"descriptions_frame_{self.desc_num}.bin", 'wb') as f:
+            f.write(bytestream[offset:])
         
         # # of data sets to process
         dataset_count = int.from_bytes( bytestream[offset:offset+4], byteorder='little' )
@@ -377,9 +414,10 @@ class NatNetClient:
             offset += 4
 
             if data_type in unpack_functions:
+                offset += 4
                 offset += unpack_functions[data_type](bytestream, offset, NatNetStreamVersion)
             else:
-                print(f"Description Decode Error | Supplied unknown asset type: {data_type}")
+                print(f"NatNetClient.__unpack_descriptions | Decode Error; Supplied unknown asset type: {data_type}")
 
 
         description = self.descriptions.export((
@@ -407,7 +445,7 @@ class NatNetClient:
                 if message.decode('utf-8').startswith('Bitstream'):
                     nn_version = self.__unpack_bitstream_info(bytestream[offset:], packet_size)
                     # Update the server version
-                    self.settings.nat_net_stream_version_server = [int(v) for v in nn_version] + [0]*(4 - len(nn_version))
+                    self.settings["nat_net_stream_version_server"] = [int(v) for v in nn_version] + [0]*(4 - len(nn_version))
                 trace(f"Command response: {message.decode('utf-8')}")
                 offset += len(message) + 1
         elif message_id == self.NAT_UNRECOGNIZED_REQUEST:
@@ -424,7 +462,7 @@ class NatNetClient:
     # Create a command socket to attach to the NatNet stream
     def __create_command_socket(self) -> Union[socket.socket, None]:
         try:
-            if self.use_multicast:
+            if self.settings['use_multicast']:
                 # Multicast case
                 result = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
                 result.bind(('', 0))
@@ -432,7 +470,7 @@ class NatNetClient:
             else:
                 # Unicast case
                 result = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-                result.bind((self.settings.local_ip, 0))
+                result.bind((self.settings["local_ip"], 0))
 
             # Common settings for both cases
             result.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -441,7 +479,7 @@ class NatNetClient:
 
         except socket.error as msg:
             print(f"ERROR: command socket error occurred:\n{msg}")
-            print(f"Check Motive/Server mode requested mode agreement. You requested {'Multicast' if self.use_multicast else 'Unicast'}")
+            print(f"Check Motive/Server mode requested mode agreement. You requested {'Multicast' if self.settings['use_multicast'] else 'Unicast'}")
         except (socket.herror, socket.gaierror):
             print("ERROR: command socket herror or gaierror occurred")
         except socket.timeout:
@@ -455,21 +493,21 @@ class NatNetClient:
             result = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
             result.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-            if self.use_multicast:
+            if self.settings["use_multicast"]:
                 # Multicast case
-                result.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(self.settings.multicast) + socket.inet_aton(self.settings.local_ip))
-                result.bind((self.settings.local_ip, port))
+                result.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(self.settings['multicast']) + socket.inet_aton(self.settings["local_ip"]))
+                result.bind((self.settings["local_ip"], port))
             else:
                 # Unicast case
                 result.bind(('', 0))
-                if self.settings.multicast != "255.255.255.255":
-                    result.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(self.settings.multicast) + socket.inet_aton(self.settings.local_ip))
+                if self.settings["multicast"] != "255.255.255.255":
+                    result.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(self.settings['multicast']) + socket.inet_aton(self.settings["local_ip"]))
 
             return result
 
         except socket.error as msg:
             print(f"ERROR: data socket error occurred:\n{msg}")
-            print(f"Check Motive/Server mode requested mode agreement. You requested {'Multicast' if self.use_multicast else 'Unicast'}")
+            print(f"Check Motive/Server mode requested mode agreement. You requested {'Multicast' if self.settings['use_multicast'] else 'Unicast'}")
         except (socket.herror, socket.gaierror):
             print("ERROR: data socket herror or gaierror occurred")
         except socket.timeout:
@@ -478,27 +516,27 @@ class NatNetClient:
         return None
 
     # For local use; updates NatNet version and server capabilities
-    def __unpack_server_info(self, bytestream: bytes) -> 264:
+    def __unpack_server_info(self, bytestream: bytes, offset: int) -> int:
         # Server name
-        self.settings.application_name, _, _ = bytes(bytestream[:256]).partition(b'\0')
-        self.settings.application_name = str(self.settings.application_name, "utf-8")
+        self.settings["application_name"], _, _ = bytes(bytestream[offset:offset+256]).partition(b'\0')
+        self.settings["application_name"] = str(self.settings["application_name"], "utf-8")
 
         # Server Version info
-        self.settings.server_version = struct.unpack('BBBB', bytestream[256:260])
+        self.settings["server_version"] = struct.unpack('BBBB', bytestream[offset+256:offset+260])
 
         # NatNet Version info
-        self.settings.nat_net_stream_version_server = struct.unpack('BBBB', bytestream[260:264])
+        self.settings["nat_net_stream_version_server"] = struct.unpack('BBBB', bytestream[offset+260:offset+264])
 
-        if self.settings.nat_net_requested_version[:2] == [0, 0]:
-            print(f"Resetting requested version to {self.settings.nat_net_stream_version_server} from {self.settings.nat_net_requested_version}")
-            self.settings.nat_net_requested_version = self.settings.nat_net_stream_version_server
+        if self.settings["nat_net_requested_version"][:2] == [0, 0]:
+            print(f"Resetting requested version to {self.settings['nat_net_stream_version_server']} from {self.settings['nat_net_requested_version']}")
+            self.settings["nat_net_requested_version"] = self.settings["nat_net_stream_version_server"]
             # Determine if the bitstream version can be changed
-            self.settings.can_change_bitstream_version = self.settings.nat_net_stream_version_server[0] >= 4 and not self.use_multicast
+            self.settings["can_change_bitstream_version"] = self.settings["nat_net_stream_version_server"][0] >= 4 and not self.settings["use_multicast"]
 
-        trace_mf(f"Sending Application Name: {self.settings.application_name}")
-        trace_mf(f"NatNetVersion: {self.settings.nat_net_stream_version_server}")
-        trace_mf(f"ServerVersion: {self.settings.server_version}")
-        return 264
+        trace_mf(f"Sending Application Name: {self.settings['application_name']}")
+        trace_mf(f"NatNetVersion: {self.settings['nat_net_stream_version_server']}")
+        trace_mf(f"ServerVersion: {self.settings['server_version']}")
+        return offset + 264
 
     # For local use; updates server bitstream version
     def __unpack_bitstream_info(self, bytestream: bytes) -> list[int]:
@@ -510,9 +548,9 @@ class NatNetClient:
                 nn_version=messageList[1].split('.')
         return nn_version
 
-    def __command_thread_function(self, in_socket: socket.socket, stop: function, gprint_level: int) -> int:
+    def __command_thread_function(self, in_socket: socket.socket, stop: Callable, gprint_level: int) -> int:
         message_id_dict = {}
-        if not self.use_multicast:
+        if not self.settings["use_multicast"]:
             in_socket.settimeout(2.0)
 
         # 64k buffer size
@@ -520,7 +558,7 @@ class NatNetClient:
         while not stop():
             # Block for input
             try:
-                data, addr = in_socket.recvfrom(recv_buffer_size)
+                bytestream, addr = in_socket.recvfrom(recv_buffer_size)
             except (socket.error, socket.herror, socket.gaierror, socket.timeout) as e:
                 if stop() or isinstance(e, socket.timeout) and self.use_multicast:
                     print(f"ERROR: command socket access error occurred:\n{e}")
@@ -530,7 +568,7 @@ class NatNetClient:
 
             if bytestream:
                 # peek ahead at message_id
-                message_id = get_message_id(data)
+                message_id = get_message_id(bytestream)
                 tmp_str = f"mi_{message_id:.1f}"
                 message_id_dict[tmp_str] = message_id_dict.get(tmp_str, 0) + 1
 
@@ -538,15 +576,15 @@ class NatNetClient:
                 if message_id == self.NAT_FRAMEOFDATA and print_level > 0:
                     print_level = 1 if message_id_dict[tmp_str] % print_level == 0 else 0
 
-                message_id = self.__process_message(data, print_level)
-                data = bytearray()
+                message_id = self.__process_message(bytestream)
+                bytestream = bytearray()
 
-            if not self.use_multicast and not stop():
-                self.send_keep_alive(in_socket, self.settings.server_ip, self.settings.command_port)
+            if not self.settings['use_multicast'] and not stop():
+                self.send_keep_alive(in_socket, self.settings["server_ip"], self.settings["command_port"])
 
         return 0
 
-    def __data_thread_function(self, in_socket: socket.socket, stop: function, gprint_level: int) -> int:
+    def __data_thread_function(self, in_socket: socket.socket, stop: Callable, gprint_level: Callable) -> int:
         message_id_dict = {}
         # 64k buffer size
         recv_buffer_size = 64 * 1024
@@ -554,7 +592,7 @@ class NatNetClient:
         while not stop():
             # Block for input
             try:
-                data, addr = in_socket.recvfrom(recv_buffer_size)
+                bytestream, addr = in_socket.recvfrom(recv_buffer_size)
             except (socket.error, socket.herror, socket.gaierror, socket.timeout) as e:
                 if not stop() or isinstance(e, socket.timeout):
                     print(f"ERROR: data socket access error occurred:\n{e}")
@@ -562,7 +600,7 @@ class NatNetClient:
 
             if bytestream:
                 # peek ahead at message_id
-                message_id = get_message_id(data)
+                message_id = get_message_id(bytestream)
                 tmp_str = f"mi_{message_id:.1f}"
                 message_id_dict[tmp_str] = message_id_dict.get(tmp_str, 0) + 1
 
@@ -570,18 +608,18 @@ class NatNetClient:
                 if message_id == self.NAT_FRAMEOFDATA and print_level > 0:
                     print_level = 1 if message_id_dict[tmp_str] % print_level == 0 else 0
 
-                message_id = self.__process_message(data, print_level)
-                data = bytearray()
+                message_id = self.__process_message(bytestream)
+                bytestream = bytearray()
 
         return 0
 
     def __process_message(self, bytestream: bytes) -> int:
-        message_id = get_message_id(data)
+        message_id = get_message_id(bytestream)
         packet_size = int.from_bytes(bytestream[2:4], byteorder='little')
 
         # skip the 4 bytes for message ID and packet_size
         offset = 4
-        if message_id == self.NAT_FRAMEOFbytestream:
+        if message_id == self.NAT_FRAMEOFDATA:
             offset += self.__unpack_frame_data(bytestream, offset, NatNetStreamVersion=None)
 
         elif message_id == self.NAT_MODELDEF:
@@ -589,7 +627,7 @@ class NatNetClient:
 
         elif message_id == self.NAT_SERVERINFO:
             trace(f"Message ID: {message_id:.1f} (NAT_SERVERINFO), packet size: {packet_size}")
-            offset += self.__unpack_server_info(bytestream[offset:])
+            offset += self.__unpack_server_info(bytestream, offset)
 
         elif message_id in [self.NAT_RESPONSE, self.NAT_UNRECOGNIZED_REQUEST, self.NAT_MESSAGESTRING]:
             offset = self.__handle_response_message(bytestream, offset, packet_size, message_id)
@@ -607,32 +645,32 @@ class NatNetClient:
     # # # # # # # # # # # # # # #
 
     def set_client_address(self, local_ip_address: str) -> None:
-        if not self.settings.is_locked:
-            self.settings.local_ip = local_ip_address
+        if not self.settings["is_locked"]:
+            self.settings["local_ip"] = local_ip_address
 
     def get_client_address(self) -> str:
-        return self.settings.local_ip
+        return self.settings["local_ip"]
 
     def set_server_address(self, server_ip_address: str) -> None:
-        if not self.settings.is_locked:
-            self.settings.server_ip = server_ip_address
+        if not self.settings["is_locked"]:
+            self.settings["server_ip"] = server_ip_address
 
     def get_server_address(self) -> str:
-        return self.settings.server_ip
+        return self.settings["server_ip"]
 
     def set_use_multicast(self, use_multicast: bool = True) -> None:
-        if not self.settings.is_locked:
+        if not self.settings["is_locked"]:
             self.use_multicast = use_multicast
 
     def can_change_bitstream_version(self) -> bool:
-        return self.settings.can_change_bitstream_version
+        return self.settings["can_change_bitstream_version"]
 
     def set_nat_net_version(self, NatNetRequestedVersion: list) -> None:
         """checks to see if stream version can change, then changes it with position reset"""
-        if self.settings.can_change_bitstream_version and (NatNetRequestedVersion[0:2] != self.settings.nat_net_requested_version[0:2]):
+        if self.settings["can_change_bitstream_version"] and (NatNetRequestedVersion[0:2] != self.settings["nat_net_requested_version"][0:2]):
             sz_command = f"Bitstream {NatNetRequestedVersion[0]}.{NatNetRequestedVersion[1]}"
             if self.send_command(sz_command) >= 0:
-                self.settings.nat_net_requested_version = NatNetRequestedVersion
+                self.settings["nat_net_requested_version"] = NatNetRequestedVersion
                 print("changing bitstream MAIN")
 
                 # force frame send and play reset
@@ -646,19 +684,19 @@ class NatNetClient:
         return -1
 
     def get_application_name(self) -> str:
-        return self.settings.application_name
+        return self.settings['application_name']
 
     def get_nat_net_requested_version(self) -> str:
-        return self.settings.nat_net_requested_version
+        return self.settings["nat_net_requested_version"]
 
     def get_nat_net_version_server(self) -> str:
-        return self.settings.nat_net_stream_version_server
+        return self.settings["nat_net_stream_version_server"]
 
     def get_server_version(self) -> str:
-        return self.settings.server_version
+        return self.settings["server_version"]
 
     def get_command_port(self) -> int:
-        return self.settings.command_port
+        return self.settings["command_port"]
 
 
 
@@ -670,7 +708,7 @@ class NatNetClient:
             self.command_socket is None
             or self.data_socket is None
             or self.get_application_name() == "Not Set"
-            or self.settings.server_version == [0,0,0,0]
+            or self.settings["server_version"] == [0,0,0,0]
         )
 
     def send_request(self, in_socket: socket.socket, command: int, command_str: str, address: Tuple[Any, ...]):
@@ -696,7 +734,7 @@ class NatNetClient:
         nTries = 3
         ret_val = -1
         for tries in range(nTries):
-            ret_val = self.send_request( self.command_socket, self.NAT_REQUEST, command_str,  (self.settings.server_ip, self.settings.command_port) )
+            ret_val = self.send_request( self.command_socket, self.NAT_REQUEST, command_str,  (self.settings["server_ip"], self.settings["command_port"]) )
             if (ret_val != -1):
                 break;
         return ret_val
@@ -725,7 +763,7 @@ class NatNetClient:
         
     def startup(self) -> bool:
         # Create the data socket
-        self.data_socket = self.__create_data_socket( self.settings.data_port )
+        self.data_socket = self.__create_data_socket( self.settings["data_port"] )
         if self.data_socket is None :
             print( "Could not open data channel" )
             return False
@@ -735,7 +773,7 @@ class NatNetClient:
         if self.command_socket is None :
             print( "Could not open command channel" )
             return False
-        self.settings.is_locked = True
+        self.settings["is_locked"] = True
 
         self.stop_threads = False
         # Create a separate thread for receiving data packets
@@ -748,15 +786,15 @@ class NatNetClient:
 
         # Required for setup
         # Get NatNet and server versions
-        self.send_request(self.command_socket, self.NAT_CONNECT, "",  (self.settings.server_ip, self.settings.command_port) )
+        self.send_request(self.command_socket, self.NAT_CONNECT, "",  (self.settings["server_ip"], self.settings["command_port"]) )
 
 
 
         ##Example Commands
         ## Get NatNet and server versions
-        #self.send_request(self.command_socket, self.NAT_CONNECT, "", (self.server_ip_address, self.command_port) )
+        self.send_request(self.command_socket, self.NAT_REQUEST_FRAMEOFDATA, "", (self.settings['server_ip'], self.settings['command_port']) )
         ## Request the model definitions
-        #self.send_request(self.command_socket, self.NAT_REQUEST_MODELDEF, "",  (self.server_ip_address, self.command_port) )
+        self.send_request(self.command_socket, self.NAT_REQUEST_MODELDEF, "",  (self.settings['server_ip'], self.settings['command_port']) )
         return True
 
     def shutdown(self) -> None:

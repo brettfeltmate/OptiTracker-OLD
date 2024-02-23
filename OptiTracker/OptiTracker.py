@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 
 
 # Import native API class
-from Resources.APIs.Official.PythonClient.NatNetClient import NatNetClient
+from API_Remake.NatNetClient import NatNetClient
 
 # Constants denoting asset types
 PREFIX = "Prefix"
@@ -46,7 +46,17 @@ class OptiTracker:
 
         # Create dt.Frame dictionary
         self.frames = {
-            asset_type: dt.Frame() for asset_type, store_value in self.frame_listeners.items() if store_value
+             'Prefix':dt.Frame(), 
+            'MarkerSet':dt.Frame(), 
+            'LabeledMarker':dt.Frame(),
+            'LegacyMarkerSet':dt.Frame(),
+            'RigidBody':dt.Frame(), 
+            'Skeleton':dt.Frame(),
+            'AssetRigidBody':dt.Frame(),
+            'AssetMarker':dt.Frame(),
+            'ForcePlate':dt.Frame(), 
+            'Device':dt.Frame(), 
+            'Suffix': dt.Frame()
         }
 
         self.descriptions = {
@@ -80,13 +90,13 @@ class OptiTracker:
         self.client.shutdown()
 
     # Get new frame data
-    def collect_frame(self, frame_data: Dict[Tuple[Dict, ...]]) -> None:
+    def collect_frame(self, frame_data: Dict[str, Tuple[Dict, ...]]) -> None:
         # Store frame data
         for asset_type, asset_data in frame_data.items():
             self.frames[asset_type].rbind(dt.Frame(asset_data))
 
     # Get new model descriptions
-    def collect_descriptions(self, descriptions: Dict[Tuple[Dict, ...]]) -> None:
+    def collect_descriptions(self, descriptions: Dict[str, Tuple[Dict, ...]]) -> None:
         for asset_type, asset_description in descriptions.items():
             self.descriptions[asset_type].rbind(dt.Frame(asset_description))
     

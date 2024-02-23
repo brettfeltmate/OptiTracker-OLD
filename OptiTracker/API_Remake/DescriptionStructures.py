@@ -1,8 +1,5 @@
-# Necessary for creating structure dicts
-from .DescriptionUnpackers import markerSetDescription, rigidBodyDescription, skeletonDescription, forcePlateDescription, deviceDescription, cameraDescription, assetDescription
-
 # Structures created using the work of art that is the Construct library
-from construct import Struct, CString, Optional, this, Computed, Tell, If
+from construct import Struct, CString, Optional, this, Computed, Tell
 from construct import Int32ul, Float32l, Int32ul
 
 # MoCap Asset Description structures
@@ -33,7 +30,7 @@ descStruct_MarkerSet = Struct(
     'asset_name' /      CString('utf8'),
     'packet_size' /     Int32ul,
     'child_count' /     Int32ul,
-    'children' /        descStruct_Marker[this.count],
+    'children' /        descStruct_Marker[this.child_count],
     'relative_offset' / Tell
 )
 # ----------------------
@@ -224,19 +221,7 @@ descStruct_Camera = Struct(
 
 
 
-#
-# Structures dictionary for MoCap asset descriptions
-# NOTE: Original idea was to support backwards compatibility, but that's Future Brett's problem
 
-DESCRIPTION_STRUCTS = {
-    markerSetDescription:  descStruct_MarkerSet,
-    rigidBodyDescription:  descStruct_RigidBody,
-    skeletonDescription:   descStruct_Skeleton,
-    assetDescription:      descStruct_Asset,
-    forcePlateDescription: descStruct_ForcePlate,
-    deviceDescription:     descStruct_Device,
-    cameraDescription:     descStruct_Camera
-}
 
 
 

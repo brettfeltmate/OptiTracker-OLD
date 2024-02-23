@@ -2,7 +2,10 @@
 
 from construct import Struct
 from typing import List, Dict, Union, Tuple
-from .DescriptionStructures import DESCRIPTION_STRUCTS
+from .DescriptionStructures import *
+
+
+
 
 class descriptionUnpacker:
     def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
@@ -32,7 +35,7 @@ class descriptionUnpacker:
         return 0
         
     # Shadows Construct.Struct.parse() method
-    def parse(self, bytestream: bytes, offset: int, return_data: bool = True) -> Union[Tuple[Dict, ...] | None]:
+    def parse(self, bytestream: bytes, offset: int, return_data: bool = True) -> Union[Tuple[Dict, ...], None]:
         self._description = self._structure.parse(bytestream[offset:])
 
         if return_data:
@@ -125,6 +128,21 @@ class cameraDescription(descriptionUnpacker):
         return self.relative_offset(), [dict(list(camera.items())[1:]) 
                                         for camera in self._description.children]
     
+
+    #
+# Structures dictionary for MoCap asset descriptions
+# NOTE: Original idea was to support backwards compatibility, but that's Future Brett's problem
+
+DESCRIPTION_STRUCTS = {
+    markerSetDescription:  descStruct_MarkerSet,
+    rigidBodyDescription:  descStruct_RigidBody,
+    skeletonDescription:   descStruct_Skeleton,
+    assetDescription:      descStruct_Asset,
+    forcePlateDescription: descStruct_ForcePlate,
+    deviceDescription:     descStruct_Device,
+    cameraDescription:     descStruct_Camera
+}
+    
     # Aggregate frame data
 class Descriptions:
     def __init__(self) -> None:
@@ -146,7 +164,7 @@ class Descriptions:
         self._descriptions[asset_type] = asset_description
 
     # Export frame data for desired asset types; also allows for omission
-    def __validate_export_arg(self, arg: Union[Tuple[str,...] | str], name: str) -> Tuple[str, ...]:
+    def __validate_export_arg(self, arg: Union[Tuple[str,...], str], name: str) -> Tuple[str, ...]:
         if isinstance(arg, str):
             return (arg,)
         elif isinstance(arg, tuple) and all(isinstance(i, str) for i in arg):
@@ -155,7 +173,7 @@ class Descriptions:
             raise TypeError(f"Descriptions.export() | {name} must be str or tuple thereof")
 
     # Export descriptions for desired asset types; also allows for omission
-    def export(self, include: Union[Tuple[str, ...] | str], exclude: Union[Tuple[str, ...] | str] = None) -> Dict[Tuple[Dict, ...]]:
+    def export(self, include: Union[Tuple[str, ...], str], exclude: Union[Tuple[str, ...], str] = None) -> Dict[str, Tuple[Dict, ...]]:
         include = self.__validate_export_arg(include, "include")
 
         if exclude is not None:

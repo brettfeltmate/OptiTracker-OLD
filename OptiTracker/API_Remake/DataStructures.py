@@ -1,8 +1,5 @@
-# Necessary for creating structure dicts
-from .DataUnpackers import prefixData, markerSetData, labeledMarkerSetData, legacyMarkerSetData, rigidBodyData, skeletonData, assetData, forcePlateData, deviceData, suffixData
-
 # Structures created using the work of art that is the Construct library
-from construct import Struct, CString, Optional, Computed, this, Tell
+from construct import Struct, CString, Optional, Computed, this, Tell, Probe
 from construct import Int16sb, Int32ul, Int64ul, Float32l
 
 
@@ -11,7 +8,8 @@ from construct import Int16sb, Int32ul, Int64ul, Float32l
 dataStruct_Prefix = Struct(
     'asset_type' /      Computed("Prefix"),
     'frame_number' /    Int32ul,
-    'relative_offset' / Tell
+    'relative_offset' / Tell,
+    Probe()
 )
 
 
@@ -28,8 +26,9 @@ dataStruct_MarkerSet = Struct(
     'asset_type' /      Computed("MarkerSet"),
     'asset_name' /      CString("utf8"),
     'child_count' /     Int32ul,
-    'children' /        dataStruct_Marker[this.count],
-    'relative_offset' / Tell
+    'children' /        dataStruct_Marker[this.child_count],
+    'relative_offset' / Tell,
+    Probe()
 )
 
 
@@ -49,7 +48,8 @@ dataStruct_LabeledMarker = Struct(
     'size' /            Float32l,
     'param' /           Int16sb,
     'residual' /        Float32l,
-    'relative_offset' / Tell
+    'relative_offset' / Tell,
+    Probe()
 )
 
 
@@ -64,8 +64,10 @@ dataStruct_LegacyMarker = Struct(
 dataStruct_LegacyMarkerSet = Struct(
     'asset_type' /      Computed("LegacyMarkerSet"),
     'child_count' /     Int32ul,
-    'children' /        dataStruct_LegacyMarker[this.count],
-    'relative_offset' / Tell
+    'packet_size' /     Int32ul,
+    'children' /        dataStruct_LegacyMarker[this.child_count],
+    'relative_offset' / Tell,
+    Probe()
 )
 
 # RigidBody & Skeleton structures
@@ -85,7 +87,8 @@ dataStruct_RigidBody = Struct(
     'rot_z' /               Float32l,
     'error' /               Float32l,
     'tracking_validity' /   Computed(lambda ctx: Int16sb * isTrue),
-    'relative_offset' /     Tell
+    'relative_offset' /     Tell,
+    Probe()
 )
 
 dataStruct_Skeleton = Struct(
@@ -93,7 +96,8 @@ dataStruct_Skeleton = Struct(
     'asset_ID' /        Int32ul,
     'child_count' /     Int32ul,
     'children' /        dataStruct_RigidBody[this.child_count],
-    'relative_offset' / Tell
+    'relative_offset' / Tell,
+    Probe()
 )
 
 
@@ -129,7 +133,9 @@ dataStruct_Asset = Struct(
     "rigid_body_count" /    Int32ul,
     "rigid_bodies" /        dataStruct_AssetRigidBody[this.rigid_body_count],
     "marker_count" /        Int32ul,
-    "markers" /             dataStruct_AssetMarker[this.marker_count]
+    "markers" /             dataStruct_AssetMarker[this.marker_count],
+    "realative_offset" /    Tell,
+    Probe()
 )
 
 
@@ -146,23 +152,25 @@ dataStruct_Channel = Struct(
     'parent_ID' /       Computed(lambda ctx: ctx._.self_ID),
     'parent_type' /     Computed(lambda ctx: ctx._.asset_type),
     'child_count' /     Int32ul,
-    'children' /        dataStruct_ChannelFrame[this.count]
+    'children' /        dataStruct_ChannelFrame[this.child_count]
 )
 
 dataStruct_ForcePlate = Struct(
     'asset_type' /      Computed("ForcePlate"),
     'asset_ID' /         Int32ul,
     'child_count' /     Int32ul,
-    'children' /        dataStruct_Channel[this.count],
-    'relative_offset' / Tell
+    'children' /        dataStruct_Channel[this.child_count],
+    'relative_offset' / Tell,
+    Probe()
 )
 
 dataStruct_Device = Struct(
     'asset_type' /      Computed("Device"),
     'asset_ID' /         Int32ul,
     'child_count' /     Int32ul,
-    'children' /        dataStruct_Channel[this.count],
-    'relative_offset' / Tell
+    'children' /        dataStruct_Channel[this.child_count],
+    'relative_offset' / Tell,
+    Probe()
 )
 
 
@@ -184,20 +192,9 @@ dataStruct_Suffix = Struct(
     'param' /                       Int16sb,
     'is_recording' /                Computed(this.param * isRecording),
     'tracked_models_changed' /      Computed(this.param * hasChanged),
-    'relative_offset' /             Tell
+    'relative_offset' /             Tell,
+    Probe()
 )
 
 
-# Unpacker class type used to select the correct structure
-FRAMEDATA_STRUCTS = {
-    prefixData:             dataStruct_Prefix,
-    markerSetData:          dataStruct_MarkerSet,
-    labeledMarkerSetData:   dataStruct_LabeledMarker,
-    legacyMarkerSetData:    dataStruct_LegacyMarkerSet,
-    rigidBodyData:          dataStruct_RigidBody,
-    skeletonData:           dataStruct_Skeleton,
-    assetData:              dataStruct_Asset,
-    forcePlateData:         dataStruct_ForcePlate,
-    deviceData:             dataStruct_Device,
-    suffixData:             dataStruct_Suffix
-}
+

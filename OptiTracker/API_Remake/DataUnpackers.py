@@ -1,8 +1,10 @@
 # TODO: Document
 
 from construct import Struct
-from .DataStructures import FRAMEDATA_STRUCTS
+from .DataStructures import *
 from typing import Tuple, List, Dict, Union
+
+
 
 
 # # # # # # # # # # # # # # # # # # # # # # #
@@ -35,7 +37,7 @@ class dataUnpacker:
         return 0
     
     # Shadows Construct.Struct.parse() method
-    def parse(self, bytestream: bytes, offset: int, return_data: bool = True) -> Union[Tuple[Dict] | None]:
+    def parse(self, bytestream: bytes, offset: int, return_data: bool = True) -> Union[Tuple[Dict], None]:
         self._framedata = self._structure.parse(bytestream[offset:])
         if return_data:
             self.export()
@@ -147,6 +149,20 @@ class suffixData(dataUnpacker):
     
 
 
+# Unpacker class type used to select the correct structure
+FRAMEDATA_STRUCTS = {
+    prefixData:             dataStruct_Prefix,
+    markerSetData:          dataStruct_MarkerSet,
+    labeledMarkerData:      dataStruct_LabeledMarker,
+    legacyMarkerSetData:    dataStruct_LegacyMarkerSet,
+    rigidBodyData:          dataStruct_RigidBody,
+    skeletonData:           dataStruct_Skeleton,
+    assetData:              dataStruct_Asset,
+    forcePlateData:         dataStruct_ForcePlate,
+    deviceData:             dataStruct_Device,
+    suffixData:             dataStruct_Suffix
+}
+
 # # # # # # # # # # # # #
 # Frame data container  #
 # # # # # # # # # # # # #
@@ -165,12 +181,15 @@ class frameData:
             'AssetRigidBody': (),
             'AssetMarker': (),
             'ForcePlate': (), 
-            'Devices': (), 
+            'Device': (), 
             'Suffix': ()
         }
 
+    def log(self, asset_type: str, asset_frame_data: Tuple[Dict, ...]) -> None:
+        self._framedata[asset_type] = asset_frame_data
+
     # Log frame data for a given asset type
-    def __validate_export_arg(self, arg: Union[Tuple[str,...] | str], name: str) -> Tuple[str, ...]:
+    def __validate_export_arg(self, arg: Union[Tuple[str,...], str], name: str) -> Tuple[str, ...]:
         if isinstance(arg, str):
             return (arg,)
         elif isinstance(arg, tuple) and all(isinstance(i, str) for i in arg):
@@ -179,13 +198,15 @@ class frameData:
             raise TypeError(f"frameData.export() | {name}: expected str or tuple thereof, got {type(arg)}")
 
     # Export frame data for desired asset types; also allows for omission
-    def export(self, include: Union[Tuple[str, ...] | str], exclude: Union[Tuple[str, ...] | str] = None) -> Dict[Tuple[Dict, ...]]:
-        include = self.__validate_export_arg(include, "include")
+    def export(self, include: Union[Tuple[str, ...], str], exclude: Union[Tuple[str, ...], str] = None) -> Dict[str, Tuple[Dict, ...]]:
+        # include = self.__validate_export_arg(include, "include")
 
-        if exclude is not None:
-            exclude = self.__validate_export_arg(exclude, "exclude")
-            return {k: v for k, v in self._framedata.items() 
-                    if k in include and k not in exclude}
+        # if exclude is not None:
+        #     exclude = self.__validate_export_arg(exclude, "exclude")
+        #     return {k: v for k, v in self._framedata.items() 
+        #             if k in include and k not in exclude}
             
-        return {k: v for k, v in self._framedata.items() if k in include}
+        # return {k: v for k, v in self._framedata.items() if k in include}
+
+        return self._framedata
 

@@ -10,13 +10,13 @@ from typing import Tuple, List, Dict, Union
 # # # # # # # # # # # # # # # # # # # # # # #
 
 class dataUnpacker:
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
-        self.natnet_version = natnet_version      # Unlikely to be implemented
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        self.natnet_version = NatNetStreamVersion      # Unlikely to be implemented
         self._structure = self._get_structure()   # Bespoke Asset-specific Construct Structure
         self._framedata = None                         # Container for parsed data
 
         # Parse data if provided during instantiation
-        if bytestream is not None & offset is not None:
+        if (bytestream, offset) != (None, None):
             self.parse(bytestream, offset)
 
     # Fetch structure corresponding to asset type
@@ -53,16 +53,16 @@ class dataUnpacker:
 # # # # # # # # # # # # # # 
     
 class prefixData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
-        super().__init__(natnet_version, bytestream)     
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)     
         
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(self._framedata.items())[1:-1])]
 
 
 class markerSetData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(marker.items())[1:]) 
@@ -70,16 +70,16 @@ class markerSetData(dataUnpacker):
     
 
 class labeledMarkerData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(self._framedata.items())[1:-1])]
 
 
 class legacyMarkerSetData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(legacyMarker.items())[1:]) 
@@ -87,24 +87,24 @@ class legacyMarkerSetData(dataUnpacker):
 
 
 class rigidBodyData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(self._framedata.items())[1:-1])]
 
 
 class skeletonData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(rigidBody.items())[1:-1]) 
                                         for rigidBody in self._framedata.children]
     
 class assetData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self, asset_type) ->Tuple[int, Tuple[Dict, ...]]:
         if (asset_type == "AssetRigidBodies"):
@@ -119,8 +119,8 @@ class assetData(dataUnpacker):
 
 
 class forcePlateData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(frame.items())[1:]) 
@@ -129,8 +129,8 @@ class forcePlateData(dataUnpacker):
 
 
 class deviceData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) ->Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(frame.items())[1:]) 
@@ -139,8 +139,8 @@ class deviceData(dataUnpacker):
 
 
 class suffixData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: str = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) -> Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), tuple(dict(list(self._framedata.items())[1:-1]))
@@ -176,7 +176,7 @@ class frameData:
         elif isinstance(arg, tuple) and all(isinstance(i, str) for i in arg):
             return arg
         else:
-            raise TypeError(f"frameData.export() | {name} must be str or tuple thereof")
+            raise TypeError(f"frameData.export() | {name}: expected str or tuple thereof, got {type(arg)}")
 
     # Export frame data for desired asset types; also allows for omission
     def export(self, include: Union[Tuple[str, ...] | str], exclude: Union[Tuple[str, ...] | str] = None) -> Dict[Tuple[Dict, ...]]:

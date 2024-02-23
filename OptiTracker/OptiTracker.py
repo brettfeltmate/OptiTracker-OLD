@@ -1,7 +1,7 @@
 import sys
 import os
 import datatable as dt
-from typing import Tuple, Dict, Union
+from typing import Tuple, Dict
 
 # Get script directory to allow for relative imports
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -46,11 +46,11 @@ class OptiTracker:
 
         # Create dt.Frame dictionary
         self.frames = {
-            key: dt.Frame() for key, value in self.description_listeners.items() if value
+            asset_type: dt.Frame() for asset_type, store_value in self.frame_listeners.items() if store_value
         }
 
         self.descriptions = {
-            key: dt.Frame() for key, value in self.description_listeners.items() if value
+            asset_type: dt.Frame() for asset_type, store_value in self.description_listeners.items() if store_value
         }
 
     # Create NatNetClient instance
@@ -73,7 +73,7 @@ class OptiTracker:
     
     # Start NatNetClient, returns True if successful, False otherwise
     def start_client(self) -> bool:
-        return self.client.run()
+        return self.client.startup()
 
     # Stop NatNetClient
     def stop_client(self) -> None:
@@ -82,12 +82,14 @@ class OptiTracker:
     # Get new frame data
     def collect_frame(self, frame_data: Dict[Tuple[Dict, ...]]) -> None:
         # Store frame data
-        for key, value in frame_data.items():
-            self.frames[key].rbind(value)
+        for asset_type, asset_data in frame_data.items():
+            self.frames[asset_type].rbind(dt.Frame(asset_data))
 
     # Get new model descriptions
-    def collect_descriptions(self, descriptions: Dict) -> None:
-        pass
+    def collect_descriptions(self, descriptions: Dict[Tuple[Dict, ...]]) -> None:
+        for asset_type, asset_description in descriptions.items():
+            self.descriptions[asset_type].rbind(dt.Frame(asset_description))
+    
     # Get frame data for skeletons
     def get_skeletons_frame_data(self, frame_number, frame_data) -> None:
         # Store skeleton frame data

@@ -4,6 +4,7 @@ import os
 import time
 import pprint
 
+
 # Get script directory to allow for relative imports
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
@@ -21,10 +22,10 @@ OptiTracker = OptiTracker()
 OptiTracker.init_client()
 
 # Duration of frame data recording, in seconds
-record_duration = 0.1
+record_duration = 1
 
 # Wait until user is ready to start recording
-input(f"Press enter then get moving.\nWill record frame data for {record_duration} second(s).")
+input(f"Press key then get moving.\nWill record frame data for {record_duration} second(s).")
 
 # Start recording
 record_until = time.time() + record_duration
@@ -36,14 +37,15 @@ while time.time() < record_until:
 OptiTracker.stop_client()
 
 # Inform user that recording is complete
-input("\n\nDone recording. Press enter to trigger writing.")
+input("\n\nDone recording. Press key to trigger writing.")
 
-with open("out/complete_mocap_dump.txt", 'w') as file:
-    file.write("==============================================================================")
-    file.write("\n\nCOMPLETE MOCAP FRAMES\n\n")
-    file.write("==============================================================================")
-    file.write("\n\n")
-    pprint.pprint(OptiTracker.frames, file)
+for asset_type in OptiTracker.frames.keys():
+    with open(f"out/{asset_type}_framedata.csv", 'w') as file:
+        file.write(OptiTracker.frames[asset_type].to_csv(index=False))
+
+for asset_type in OptiTracker.descriptions.keys():
+    with open(f"out/{asset_type}_description.csv", 'w') as file:
+        file.write(OptiTracker.descriptions[asset_type].to_csv(index=False))
 
 # # Write descriptions to file
 # with open("out/skeleton_descriptions.txt", 'w') as file:
@@ -106,6 +108,6 @@ with open("out/complete_mocap_dump.txt", 'w') as file:
 #     pickle.dump(OptiTracker.frames['rigid_bodies'], file, pickle.HIGHEST_PROTOCOL)
 
 # Inform user that writing is complete
-input("\n\nDone writing. Press enter to close script.") 
+input("\n\nDone writing. Press key to exit.") 
 
 sys.exit()

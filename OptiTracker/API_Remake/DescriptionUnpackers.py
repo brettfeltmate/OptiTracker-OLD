@@ -5,14 +5,14 @@ from typing import List, Dict, Union, Tuple
 from .DescriptionStructures import DESCRIPTION_STRUCTS
 
 class descriptionUnpacker:
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: Tuple[int, ...] = None) -> None:
-        self.natnet_version = natnet_version        # Determines which structure to use
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        self.natnet_version = NatNetStreamVersion        # Determines which structure to use
         self._structure = self._get_structure()     # Asset specific Construct Struct
         self._description = None                           # To store parsed description
 
         # Parse data if provided during instantiation
         if (bytestream, offset) is not (None, None):
-            self.unpack(bytestream, offset)
+            self.parse(bytestream, offset)
 
     # Fetches child-appropriate description Struct(), conditioned on motive version
     def _get_structure(self) -> Struct:
@@ -32,7 +32,7 @@ class descriptionUnpacker:
         return 0
         
     # Shadows Construct.Struct.parse() method
-    def unpack(self, bytestream: bytes, offset: int, return_data: bool = True) -> Union[Tuple[Dict, ...] | None]:
+    def parse(self, bytestream: bytes, offset: int, return_data: bool = True) -> Union[Tuple[Dict, ...] | None]:
         self._description = self._structure.parse(bytestream[offset:])
 
         if return_data:
@@ -40,7 +40,7 @@ class descriptionUnpacker:
 
     # Coerces description parcels into list[dict]; bundling procedure varies by child
     #       NOTE: Children drop terminal entries (1 = obj addr, -1 = offset)
-    def export(self) -> Tuple[Dict, ...]:
+    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
         raise NotImplementedError("AssetDescriptionStruct.dump() | Must be implemented by child class.")
     
 #
@@ -50,39 +50,39 @@ class descriptionUnpacker:
     
 # Parses N-i MarkerSets, each composed of N-j Markers
 class markerSetDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: Tuple[int, ...] = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self) -> Tuple[Dict, ...]:
+    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(marker.items())[1:]) 
                                         for marker in self._description.children]
     
 
 # Parses N-i RigidBodies NOT integral to skeletons, each composed of N-j RigidBody(s)
 class rigidBodyDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: Tuple[int, ...] = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self) -> Tuple[Dict, ...]:
+    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(rigidBodyMarker.items())[1:]) 
                                         for rigidBodyMarker in self._description.children]
     
 # Parses N-i Skeletons, each composed of N-j RigidBodies, each composed of N-k RigidBody(s)
 class skeletonDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: Tuple[int, ...] = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self) -> Tuple[Dict, ...]:
+    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(rigidBodyMarker.items())[1:]) 
                                         for rigidBody in self._description.children
                                         for rigidBodyMarker in rigidBody.children]
     
 
 class assetDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: Tuple[int, ...] = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self, asset_type) -> Tuple[Dict, ...]:
+    def export(self, asset_type: str) -> Tuple[int, Tuple[Dict, ...]]:
         if (asset_type == "RigidBodies"):
             return self.relative_offset(), [dict(list(rigidBodyMarker.items())[1:])
                                             for rigidBody in self._description.rigid_body_children
@@ -91,14 +91,14 @@ class assetDescription(descriptionUnpacker):
             return self.relative_offset(), [dict(list(marker.items())[1:])
                                             for marker in self._description.marker_children]
         else:
-            raise ValueError(f"assetDescription.export() | asset_type must be 'RigidBodies' or 'Markers'; type supplied: {asset_type}")
+            raise ValueError(f"assetDescription.export() | asset_type must be 'RigidBodies' or 'Markers', got: {asset_type}")
     
 # Parses N-i ForcePlates, each plate composed of N-j Channel(s)
 class forcePlateDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: Tuple[int, ...] = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self) -> Tuple[Dict, ...]:
+    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
         # TODO: Figuring out tidy way of returning matrices is Future Brett's problem
         pass
         return self.relative_offset(), [dict(list(channel.items())[1:]) 
@@ -108,20 +108,20 @@ class forcePlateDescription(descriptionUnpacker):
 
 # Parses N-i Devices, each device composed of N-j Channel(s)
 class deviceDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: Tuple[int, ...] = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self) -> Tuple[Dict, ...]:
+    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(channel.items())[1:]) 
                                         for device in self._description.children
                                         for channel in device.children]
     
 
 class cameraDescription(descriptionUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, natnet_version: Tuple[int, ...] = None) -> None:
-        super().__init__(natnet_version, bytestream)
+    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: Tuple[int, ...] = None) -> None:
+        super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self) -> Tuple[Dict, ...]:
+    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
         return self.relative_offset(), [dict(list(camera.items())[1:]) 
                                         for camera in self._description.children]
     

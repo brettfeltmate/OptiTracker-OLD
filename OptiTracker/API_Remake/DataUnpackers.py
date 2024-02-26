@@ -94,7 +94,8 @@ class rigidBodyData(dataUnpacker):
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
     def export(self) -> List[Dict]:
-        return [dict(list(self._framedata.items())[1:-1])]
+
+        return [dict(list(self._framedata.items())[1:-2])]
 
 
 class skeletonData(dataUnpacker):
@@ -200,7 +201,7 @@ class frameData:
             raise TypeError(f"frameData.export() | {name}: expected str or tuple thereof, got {type(arg)}")
 
     # Export frame data for desired asset types; also allows for omission
-    def export(self, include: Union[Tuple[str, ...], str], exclude: Union[Tuple[str, ...], str] = None) -> Dict[str, Tuple[Dict, ...]]:
+    def export(self, include: Union[Tuple[str, ...], str] = None, exclude: Union[Tuple[str, ...], str] = None) -> Dict[str, Tuple[Dict, ...]]:
         # include = self.__validate_export_arg(include, "include")
 
         # if exclude is not None:

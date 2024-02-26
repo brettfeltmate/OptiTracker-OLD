@@ -46,7 +46,7 @@ class OptiTracker:
 
         # Create dt.Frame dictionary
         self.frames = {
-             'Prefix':dt.Frame(), 
+            'Prefix':dt.Frame(), 
             'MarkerSet':dt.Frame(), 
             'LabeledMarker':dt.Frame(),
             'LegacyMarkerSet':dt.Frame(),
@@ -92,8 +92,11 @@ class OptiTracker:
     # Get new frame data
     def collect_frame(self, frame_data: Dict[str, Tuple[Dict, ...]]) -> None:
         # Store frame data
-        for asset_type, asset_data in frame_data.items():
-            self.frames[asset_type].rbind(dt.Frame(asset_data))
+        for asset_type in frame_data.keys():
+            for asset_data in frame_data[asset_type]:
+                self.frames[asset_type].rbind(dt.Frame(asset_data))
+
+        
 
     # Get new model descriptions
     def collect_descriptions(self, descriptions: Dict[str, Tuple[Dict, ...]]) -> None:

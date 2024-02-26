@@ -5,6 +5,7 @@ import time
 from DataUnpackers import *
 from DescriptionUnpackers import *
 from typing import Any, Union, List, Tuple, Callable
+import datatable as dt
 
 from pprint import pprint
 
@@ -300,17 +301,33 @@ class NatNetClient:
             self.__unpack_rigid_bodies_data,
             self.__unpack_skeletons_data,
             self.__unpack_assets_data,
-            self.__unpack_labeled_marker_data,
-            self.__unpack_force_plates_data,
-            self.__unpack_devices_data,
-            self.__unpack_frame_suffix_data
+            # self.__unpack_labeled_marker_data,
+            # self.__unpack_force_plates_data,
+            # self.__unpack_devices_data,
+            # self.__unpack_frame_suffix_data
         ]
 
         for unpack_function in unpack_functions:
             offset = unpack_function(bytestream, offset, NatNetStreamVersion)
 
-        for asset_type in self.return_frame_data.keys():
-            pprint(self.frame_data[asset_type])
+        frames = {
+            'Prefix':dt.Frame(), 
+            'MarkerSet':dt.Frame(), 
+            'LegacyMarkerSet':dt.Frame(),
+            'RigidBody':dt.Frame(), 
+            'Skeleton':dt.Frame(),
+            'AssetRigidBody':dt.Frame(),
+            'AssetMarker':dt.Frame()
+        }
+
+        data = self.frame_data.export()
+
+        for asset_type in data.keys():
+            for asset_data in data[asset_type]:
+                frames[asset_type].rbind(dt.Frame(asset_data))
+                print(frames[asset_type])
+
+        data
             
 
         # frame = self.frame_data.export((

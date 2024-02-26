@@ -135,7 +135,7 @@ dataStruct_Asset = Struct(
     "rigid_bodies" /        dataStruct_AssetRigidBody[this.rigid_body_count],
     "marker_count" /        Int32ul,
     "markers" /             dataStruct_AssetMarker[this.marker_count],
-    "realative_offset" /    Tell,
+    "relative_offset" /     Tell,
     Probe()
 )
 

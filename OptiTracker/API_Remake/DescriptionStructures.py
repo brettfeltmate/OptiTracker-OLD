@@ -1,5 +1,5 @@
 # Structures created using the work of art that is the Construct library
-from construct import Struct, CString, Optional, this, Computed, Tell
+from construct import Struct, CString, Optional, this, Computed, Tell, Probe
 from construct import Int32ul, Float32l, Int32ul
 
 # MoCap Asset Description structures
@@ -40,35 +40,40 @@ descStruct_MarkerSet = Struct(
 # --------------------------
 
 descStruct_RigidBodyMarker = Struct(
-    'asset_type' /      Computed("Marker"),
+    'asset_type' /      Computed("RigidBodyMarker"),
     'asset_ID' /        Computed(lambda ctx: ctx._.asset_ID),
     'parent_ID' /       Computed(lambda ctx: ctx._.parent_ID),
-    'parent_type' /     Computed(lambda ctx: ctx._.parent_type),
-    'parent_name' /     Computed(lambda ctx: ctx._.parent_name),
+    # 'parent_type' /     Computed(lambda ctx: ctx._.parent_type),
+    # 'parent_name' /     Computed(lambda ctx: ctx._.parent_name),
     'pos_x' /           Computed(lambda ctx: ctx._.pos_x),
     'pos_y' /           Computed(lambda ctx: ctx._.pos_y),
     'pos_z' /           Computed(lambda ctx: ctx._.pos_z),
+    Probe(lookahead=12),
     'offset_x' /        Float32l,
     'offset_y' /        Float32l,
     'offset_z' /        Float32l,
     'active_label' /    Int32ul,
     'asset_name' /      CString('utf8'),
+    Probe()
 )
 
 descStruct_RigidBody = Struct(
+    Probe(lookahead=12),
     'asset_type' /      Computed("RigidBody"),
     'asset_name' /      CString('utf8'),
     'asset_ID' /        Int32ul,
     'parent_ID' /       Int32ul,
     # parent_name = None when not nested within parent structure
-    'parent_type' /     Optional(Computed(lambda ctx: ctx._.asset_type)),
-    'parent_name' /     Optional(Computed(lambda ctx: ctx._.asset_name)),
+    # 'parent_type' /     Optional(Computed(lambda ctx: ctx._.asset_type)),
+    # 'parent_name' /     Optional(Computed(lambda ctx: ctx._.asset_name)),
     'pos_x' /           Float32l, 
     'pos_y' /           Float32l, 
     'pos_z' /           Float32l,
     'child_count' /     Int32ul,
+    Probe(),
     'children' /        descStruct_RigidBodyMarker[this.child_count],
-    'relative_offset'/  Tell
+    'relative_offset'/  Tell,
+    Probe()
 )
 
 descStruct_Skeleton = Struct(
@@ -77,7 +82,8 @@ descStruct_Skeleton = Struct(
     'asset_ID' /        Int32ul,
     'child_count' /     Int32ul,
     'children' /        descStruct_RigidBody[this.child_count],
-    'relative_offset' / Tell
+    'relative_offset' / Tell,
+    Probe()
 )
 # --------------------------
 
@@ -92,7 +98,8 @@ descStruct_Asset = Struct(
     'rigid_body_children' / descStruct_RigidBody[this.rigid_body_count],
     'marker_count' /        Int32ul,
     'marker_children' /     descStruct_Marker[this.marker_count],
-    'relative_offset' /     Tell
+    'relative_offset' /     Tell,
+    Probe()
 )
 
 

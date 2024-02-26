@@ -43,7 +43,7 @@ class descriptionUnpacker:
 
     # Coerces description parcels into list[dict]; bundling procedure varies by child
     #       NOTE: Children drop terminal entries (1 = obj addr, -1 = offset)
-    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
+    def export(self) -> Tuple[Dict, ...]:
         raise NotImplementedError("AssetDescriptionStruct.dump() | Must be implemented by child class.")
     
 #
@@ -56,9 +56,9 @@ class markerSetDescription(descriptionUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
-        return self.relative_offset(), [dict(list(marker.items())[1:]) 
-                                        for marker in self._description.children]
+    def export(self) -> Tuple[Dict, ...]:
+        return (dict(list(marker.items())[1:]) 
+                for marker in self._description.children)
     
 
 # Parses N-i RigidBodies NOT integral to skeletons, each composed of N-j RigidBody(s)
@@ -66,33 +66,33 @@ class rigidBodyDescription(descriptionUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
-        return self.relative_offset(), [dict(list(rigidBodyMarker.items())[1:]) 
-                                        for rigidBodyMarker in self._description.children]
+    def export(self) -> Tuple[Dict, ...]:
+        return (dict(list(rigidBodyMarker.items())[1:]) 
+                for rigidBodyMarker in self._description.children)
     
 # Parses N-i Skeletons, each composed of N-j RigidBodies, each composed of N-k RigidBody(s)
 class skeletonDescription(descriptionUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
-        return self.relative_offset(), [dict(list(rigidBodyMarker.items())[1:]) 
-                                        for rigidBody in self._description.children
-                                        for rigidBodyMarker in rigidBody.children]
+    def export(self) -> Tuple[Dict, ...]:
+        return (dict(list(rigidBodyMarker.items())[1:]) 
+                for rigidBody in self._description.children
+                for rigidBodyMarker in rigidBody.children)
     
 
 class assetDescription(descriptionUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self, asset_type: str) -> Tuple[int, Tuple[Dict, ...]]:
+    def export(self, asset_type: str) -> Tuple[Dict, ...]:
         if (asset_type == "RigidBodies"):
-            return self.relative_offset(), [dict(list(rigidBodyMarker.items())[1:])
-                                            for rigidBody in self._description.rigid_body_children
-                                            for rigidBodyMarker in rigidBody.children]
+            return (dict(list(rigidBodyMarker.items())[1:])
+                    for rigidBody in self._description.rigid_body_children
+                    for rigidBodyMarker in rigidBody.children)
         elif (asset_type == "Markers"):
-            return self.relative_offset(), [dict(list(marker.items())[1:])
-                                            for marker in self._description.marker_children]
+            return (dict(list(marker.items())[1:])
+                    for marker in self._description.marker_children)
         else:
             raise ValueError(f"assetDescription.export() | asset_type must be 'RigidBodies' or 'Markers', got: {asset_type}")
     
@@ -101,12 +101,12 @@ class forcePlateDescription(descriptionUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
+    def export(self) -> Tuple[Dict, ...]:
         # TODO: Figuring out tidy way of returning matrices is Future Brett's problem
         pass
-        return self.relative_offset(), [dict(list(channel.items())[1:]) 
-                                        for plate in self._description.children
-                                        for channel in plate.children]
+        return (dict(list(channel.items())[1:]) 
+                for plate in self._description.children
+                for channel in plate.children)
     
 
 # Parses N-i Devices, each device composed of N-j Channel(s)
@@ -114,19 +114,19 @@ class deviceDescription(descriptionUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
-        return self.relative_offset(), [dict(list(channel.items())[1:]) 
-                                        for device in self._description.children
-                                        for channel in device.children]
+    def export(self) -> Tuple[Dict, ...]:
+        return (dict(list(channel.items())[1:]) 
+                for device in self._description.children
+                for channel in device.children)
     
 
 class cameraDescription(descriptionUnpacker):
     def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
         super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self) -> Tuple[int, Tuple[Dict, ...]]:
-        return self.relative_offset(), [dict(list(camera.items())[1:]) 
-                                        for camera in self._description.children]
+    def export(self) -> Tuple[Dict, ...]:
+        return (dict(list(camera.items())[1:]) 
+                for camera in self._description.children)
     
 
     #

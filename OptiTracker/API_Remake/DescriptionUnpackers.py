@@ -2,7 +2,7 @@
 
 from construct import Struct
 from typing import List, Dict, Union, Tuple
-from .DescriptionStructures import *
+from DescriptionStructures import *
 
 
 
@@ -14,7 +14,7 @@ class descriptionUnpacker:
         self._description = None                           # To store parsed description
 
         # Parse data if provided during instantiation
-        if (bytestream, offset) is not (None, None):
+        if (bytestream, offset) != (None, None):
             self.parse(bytestream, offset)
 
     # Fetches child-appropriate description Struct(), conditioned on motive version

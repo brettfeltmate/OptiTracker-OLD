@@ -295,8 +295,8 @@ class NatNetClient:
     def __unpack_frame_data(self, bytestream: bytes, offset: int, NatNetStreamVersion: List[int] = None) -> int:
         bytestream = memoryview(bytestream)
 
-        with open(f"frame_data_bytestream_{self.frame_num}.bin", 'wb') as f:
-            f.write(bytestream)
+        # with open(f"frame_data_bytestream_{self.frame_num}.bin", 'wb') as f:
+        #     f.write(bytestream)
 
         self.frame_num += 1
 

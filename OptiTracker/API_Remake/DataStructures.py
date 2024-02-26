@@ -1,6 +1,6 @@
 # Structures created using the work of art that is the Construct library
 from construct import Struct, CString, Optional, Computed, this, Tell, Probe
-from construct import Int16sb, Int32ul, Int64ul, Float32l
+from construct import Int16sl, Int32ul, Int64ul, Float32l
 
 
 
@@ -24,7 +24,9 @@ dataStruct_Marker = Struct(
 
 dataStruct_MarkerSet = Struct(
     'asset_type' /      Computed("MarkerSet"),
+    Probe(),
     'asset_name' /      CString("utf8"),
+    Probe(),
     'child_count' /     Int32ul,
     'children' /        dataStruct_Marker[this.child_count],
     'relative_offset' / Tell,
@@ -46,7 +48,7 @@ dataStruct_LabeledMarker = Struct(
     'pos_y' /           Float32l,
     'pos_z' /           Float32l,
     'size' /            Float32l,
-    'param' /           Int16sb,
+    'param' /           Int16sl,
     'residual' /        Float32l,
     'relative_offset' / Tell,
     Probe()
@@ -77,7 +79,6 @@ def isTrue(obj, ctx): return (obj & 0x01) != 0
 dataStruct_RigidBody = Struct(
     'asset_type' /          Computed("RigidBody"),
     'asset_ID' /            Int32ul,
-    'parent_ID' /           Optional(Computed(lambda ctx: ctx._.asset_ID)),
     'pos_x' /               Float32l,
     'pos_y' /               Float32l,
     'pos_z' /               Float32l,
@@ -86,7 +87,7 @@ dataStruct_RigidBody = Struct(
     'rot_y' /               Float32l,
     'rot_z' /               Float32l,
     'error' /               Float32l,
-    'tracking_validity' /   Computed(lambda ctx: Int16sb * isTrue),
+    'tracking_validity' /   Computed(Int16sl * isTrue),
     'relative_offset' /     Tell,
     Probe()
 )
@@ -113,7 +114,7 @@ dataStruct_AssetRigidBody = Struct(
     'rot_y' /           Float32l,
     'rot_z' /           Float32l,
     'error' /           Float32l,
-    'param' /           Int16sb,
+    'param' /           Int16sl,
 )
 
 dataStruct_AssetMarker = Struct(
@@ -123,7 +124,7 @@ dataStruct_AssetMarker = Struct(
     'pos_y' /           Float32l,
     'pos_z' /           Float32l,
     'marker_size' /     Float32l,
-    'param' /           Int16sb,
+    'param' /           Int16sl,
     'residual' /        Float32l
 )
 
@@ -189,7 +190,7 @@ dataStruct_Suffix = Struct(
     'stamp_transmit' /              Int64ul,
     'prec_timestamp_secs' /         Int32ul,
     'prec_timestamp_frac_secs' /    Int32ul,
-    'param' /                       Int16sb,
+    'param' /                       Int16sl,
     'is_recording' /                Computed(this.param * isRecording),
     'tracked_models_changed' /      Computed(this.param * hasChanged),
     'relative_offset' /             Tell,

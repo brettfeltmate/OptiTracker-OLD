@@ -1,7 +1,7 @@
 # TODO: Document
 
 from construct import Struct
-from .DataStructures import *
+from DataStructures import *
 from typing import Tuple, List, Dict, Union
 
 

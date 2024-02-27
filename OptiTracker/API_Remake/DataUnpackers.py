@@ -12,14 +12,14 @@ from typing import Tuple, List, Dict, Union
 # # # # # # # # # # # # # # # # # # # # # # #
 
 class dataUnpacker:
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
+    def __init__(self, unparsed_bytestream: bytes = None, NatNetStreamVersion: List[int] = None) -> None:
         self.natnet_version = NatNetStreamVersion      # Unlikely to be implemented
         self._structure = self._get_structure()   # Bespoke Asset-specific Construct Structure
         self._framedata = None                         # Container for parsed data
 
         # Parse data if provided during instantiation
-        if (bytestream, offset) != (None, None):
-            self.parse(bytestream, offset)
+        if unparsed_bytestream is not None:
+            self.parse(unparsed_bytestream)
 
     # Fetch structure corresponding to asset type
     def _get_structure(self) -> Struct:
@@ -40,12 +40,12 @@ class dataUnpacker:
         return 0
     
     # Shadows Construct.Struct.parse() method
-    def parse(self, bytestream: bytes, offset: int,) -> None:
-        self._framedata = self._structure.parse(bytestream[offset:])
+    def parse(self, unparsed_bytestream: bytes) -> None:
+        self._framedata = self._structure.parse(unparsed_bytestream)
 
     # Coerces data parcels into list[dict]; bundling procedure varies by asset type
     #       NOTE: Children drop terminal entries (1 = obj addr, -1 = offset)
-    def export(self) -> List[Dict]:
+    def data(self) -> List[Dict]:
         raise NotImplementedError("AssetDataStruct.dump() | Must be implemented by child class.")
 
 
@@ -56,98 +56,110 @@ class dataUnpacker:
 # # # # # # # # # # # # # # 
     
 class prefixData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
-        super().__init__(bytestream, offset, NatNetStreamVersion)     
+    def __init__(self, unparsed_bytestream: bytes = None, NatNetStreamVersion: List[int] = None) -> None:
+        super().__init__(unparsed_bytestream, NatNetStreamVersion)     
         
-    def export(self) -> List[Dict]:
+    def data(self) -> List[Dict]:
         return [dict(list(self._framedata.items())[1:-1])]
 
 
-class markerSetData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
-        super().__init__(bytestream, offset, NatNetStreamVersion)
+class markerSetsData(dataUnpacker):
+    def __init__(self, unparsed_bytestream: bytes = None, NatNetStreamVersion: List[int] = None) -> None:
+        super().__init__(unparsed_bytestream, NatNetStreamVersion)
 
-    def export(self) -> List[Dict]:
+    def data(self) -> List[Dict]:
         return [dict(list(marker.items())[1:]) 
-                for marker in self._framedata.children]
+                for marker_set in self._framedata.children
+                for marker in marker_set.children]
     
 
-class labeledMarkerData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
-        super().__init__(bytestream, offset, NatNetStreamVersion)
+class labeledMarkerSetData(dataUnpacker):
+    def __init__(self, unparsed_bytestream: bytes = None, NatNetStreamVersion: List[int] = None) -> None:
+        super().__init__(unparsed_bytestream, NatNetStreamVersion)
 
-    def export(self) -> List[Dict]:
-        return [dict(list(self._framedata.items())[1:-1])]
+    def data(self) -> List[Dict]:
+        return [dict(list(labeledMarker.items())[1:]) 
+                for labeledMarker in self._framedata.children]
 
 
 class legacyMarkerSetData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
-        super().__init__(bytestream, offset, NatNetStreamVersion)
+    def __init__(self, unparsed_bytestream: bytes = None, NatNetStreamVersion: List[int] = None) -> None:
+        super().__init__(unparsed_bytestream, NatNetStreamVersion)
 
-    def export(self) -> List[Dict]:
+    def data(self) -> List[Dict]:
         return [dict(list(legacyMarker.items())[1:]) 
                 for legacyMarker in self._framedata.children]
 
 
-class rigidBodyData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
-        super().__init__(bytestream, offset, NatNetStreamVersion)
+class rigidBodiesData(dataUnpacker):
+    def __init__(self, unparsed_bytestream: bytes = None, NatNetStreamVersion: List[int] = None) -> None:
+        super().__init__(unparsed_bytestream, NatNetStreamVersion)
 
-    def export(self) -> List[Dict]:
+    def data(self) -> List[Dict]:
 
-        return [dict(list(self._framedata.items())[1:-2])]
-
-
-class skeletonData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
-        super().__init__(bytestream, offset, NatNetStreamVersion)
-
-    def export(self) -> List[Dict]:
-        return [dict(list(rigidBody.items())[1:-1]) 
+        return [dict(list(rigidBody.items())[1:])
                 for rigidBody in self._framedata.children]
-    
-class assetData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
-        super().__init__(bytestream, offset, NatNetStreamVersion)
 
-    def export(self, asset_type) -> List[Dict]:
-        if (asset_type == "AssetRigidBody"):
+
+class skeletonsData(dataUnpacker):
+    def __init__(self, unparsed_bytestream: bytes = None, NatNetStreamVersion: List[int] = None) -> None:
+        super().__init__(unparsed_bytestream, NatNetStreamVersion)
+
+    def data(self) -> List[Dict]:
+        return [dict(list(rigidBody.items())[1:]) 
+                for skeleton in self._framedata.children
+                for rigidBody in skeleton.children]
+    
+class assetsData(dataUnpacker):
+    def __init__(self, unparsed_bytestream: bytes = None, NatNetStreamVersion: List[int] = None) -> None:
+        super().__init__(unparsed_bytestream, NatNetStreamVersion)
+
+    def data(self, asset_type) -> List[Dict]:
+        if (asset_type == "AssetRigidBodies"):
             return [dict(list(assetRigidBody.items())[1:]) 
-                    for assetRigidBody in self._framedata.rigid_bodies]
+                    for assetRigidBody in self._framedata.rigid_body_children]
+                    # for asset in self._framedata.children
+                    # for assetRigidBody in asset.rigid_bodies]
         
-        elif (asset_type == "AssetMarker"):
+        elif (asset_type == "AssetMarkers"):
             return [dict(list(assetMarker.items())[1:]) 
-                    for assetMarker in self._framedata.markers]
+                    for assetMarker in self._framedata.marker_children]
+                    # for asset in self._framedata.children
+                    # for assetMarker in asset.markers]
         else:
             raise ValueError(f"assetData.export() | asset_type must be 'AssetRigidBodies' or 'AssetMarkers'; type supplied: {asset_type}")
 
 
 
-class forcePlateData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
-        super().__init__(bytestream, offset, NatNetStreamVersion)
+class forcePlatesData(dataUnpacker):
+    def __init__(self, unparsed_bytestream: bytes = None, NatNetStreamVersion: List[int] = None) -> None:
+        super().__init__(unparsed_bytestream, NatNetStreamVersion)
 
-    def export(self) -> List[Dict]:
+    def data(self) -> List[Dict]:
         return [dict(list(frame.items())[1:]) 
-                for channel in self._framedata.children 
-                for frame in channel.children]
+                for forcePlate in self._framedata.children 
+                for channel in forcePlate.children
+                for frame in channel.children
+                ]
 
 
-class deviceData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
-        super().__init__(bytestream, offset, NatNetStreamVersion)
+class devicesData(dataUnpacker):
+    def __init__(self, unparsed_bytestream: bytes = None, NatNetStreamVersion: List[int] = None) -> None:
+        super().__init__(unparsed_bytestream, NatNetStreamVersion)
 
-    def export(self) -> List[Dict]:
+    def data(self) -> List[Dict]:
         return [dict(list(frame.items())[1:]) 
-                for channel in self._framedata.children
-                for frame in channel.children]
+                for device in self._framedata.children 
+                for channel in device.children
+                for frame in channel.children
+                ]
 
 
 class suffixData(dataUnpacker):
-    def __init__(self, bytestream: bytes = None, offset: int = None, NatNetStreamVersion: List[int] = None) -> None:
-        super().__init__(bytestream, offset, NatNetStreamVersion)
+    def __init__(self, unparsed_bytestream: bytes = None, NatNetStreamVersion: List[int] = None) -> None:
+        super().__init__(unparsed_bytestream, NatNetStreamVersion)
 
-    def export(self) -> List[Dict]:
+    def data(self) -> List[Dict]:
         return [dict(list(self._framedata.items())[1:-1])]
     
 
@@ -155,14 +167,14 @@ class suffixData(dataUnpacker):
 # Unpacker class type used to select the correct structure
 FRAMEDATA_STRUCTS = {
     prefixData:             dataStruct_Prefix,
-    markerSetData:          dataStruct_MarkerSet,
-    labeledMarkerData:      dataStruct_LabeledMarker,
+    markerSetsData:         dataStruct_MarkerSets,
+    labeledMarkerSetData:   dataStruct_LabeledMarkerSet,
     legacyMarkerSetData:    dataStruct_LegacyMarkerSet,
-    rigidBodyData:          dataStruct_RigidBody,
-    skeletonData:           dataStruct_Skeleton,
-    assetData:              dataStruct_Asset,
-    forcePlateData:         dataStruct_ForcePlate,
-    deviceData:             dataStruct_Device,
+    rigidBodiesData:        dataStruct_RigidBodies,
+    skeletonsData:          dataStruct_Skeletons,
+    assetsData:             dataStruct_Assets,
+    forcePlatesData:        dataStruct_ForcePlates,
+    devicesData:            dataStruct_Devices,
     suffixData:             dataStruct_Suffix
 }
 
@@ -176,15 +188,15 @@ class frameData:
         # Aggregate Frame Data
         self._framedata = {
             'Prefix': [], 
-            'MarkerSet': [], 
-            'LabeledMarker': [],
+            'MarkerSets': [], 
+            'LabeledMarkerSet': [],
             'LegacyMarkerSet': [],
-            'RigidBody': [], 
-            'Skeleton': [],
-            'AssetRigidBody': [],
-            'AssetMarker': [],
-            'ForcePlate': [], 
-            'Device': [], 
+            'RigidBodies': [], 
+            'Skeletons': [],
+            'AssetRigidBodies': [],
+            'AssetMarkers': [],
+            'ForcePlates': [], 
+            'Devices': [], 
             'Suffix': []
         }
 

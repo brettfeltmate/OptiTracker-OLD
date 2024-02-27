@@ -1,7 +1,7 @@
 import sys
 import os
 import datatable as dt
-from typing import Tuple, Dict
+from typing import Tuple, Dict, List
 
 # Get script directory to allow for relative imports
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -32,17 +32,17 @@ class OptiTracker:
         # NatNetClient instance
         self.client = self.init_client()
 
-        self.frame_listeners = {
-            PREFIX: True, MARKER_SET: True, LABELED_MARKER: True,
-            LEGACY_MARKER_SET: True, RIGID_BODY: True, SKELETON: True,
-            ASSET_RIGID_BODY: True, ASSET_MARKER: True, FORCE_PLATE: False,
-            DEVICE: False, CAMERA: True, SUFFIX: True
-        }
+        # self.frame_listeners = {
+        #     PREFIX: True, MARKER_SET: True, LABELED_MARKER: True,
+        #     LEGACY_MARKER_SET: True, RIGID_BODY: True, SKELETON: True,
+        #     ASSET_RIGID_BODY: True, ASSET_MARKER: True, FORCE_PLATE: False,
+        #     DEVICE: False, CAMERA: True, SUFFIX: True
+        # }
 
-        self.description_listeners = {
-            MARKER_SET: True, RIGID_BODY: True, SKELETON: True, FORCE_PLATE: False, 
-            DEVICE: False, CAMERA: True, ASSET_RIGID_BODY: True, ASSET_MARKER: True
-        }
+        # self.description_listeners = {
+        #     MARKER_SET: True, RIGID_BODY: True, SKELETON: True, FORCE_PLATE: False, 
+        #     DEVICE: False, CAMERA: True, ASSET_RIGID_BODY: True, ASSET_MARKER: True
+        # }
 
         # Create dt.Frame dictionary
         self.frames = {
@@ -59,9 +59,9 @@ class OptiTracker:
             'Suffix': dt.Frame()
         }
 
-        self.descriptions = {
-            asset_type: dt.Frame() for asset_type, store_value in self.description_listeners.items() if store_value
-        }
+        # self.descriptions = {
+        #     asset_type: dt.Frame() for asset_type, store_value in self.description_listeners.items() if store_value
+        # }
 
     # Create NatNetClient instance
     def init_client(self) -> object:
@@ -71,7 +71,7 @@ class OptiTracker:
 
         # Set frame listeners
         client.frame_data_listener = self.collect_frame
-        client.description_listener = self.collect_descriptions
+        # client.description_listener = self.collect_descriptions
         # client.rigid_bodies_frame_listener = self.get_rigid_bodies_frame_data
         # client.skeletons_frame_listener = self.get_skeletons_frame_data
 
@@ -90,7 +90,7 @@ class OptiTracker:
         self.client.shutdown()
 
     # Get new frame data
-    def collect_frame(self, frame_data: Dict[str, Tuple[Dict, ...]]) -> None:
+    def collect_frame(self, frame_data: Dict[str, List[Dict]]) -> None:
         # Store frame data
         for asset_type in frame_data.keys():
             for asset_data in frame_data[asset_type]:
@@ -102,26 +102,7 @@ class OptiTracker:
     def collect_descriptions(self, descriptions: Dict[str, Tuple[Dict, ...]]) -> None:
         for asset_type, asset_description in descriptions.items():
             self.descriptions[asset_type].rbind(dt.Frame(asset_description))
-    
-    # Get frame data for skeletons
-    def get_skeletons_frame_data(self, frame_number, frame_data) -> None:
-        # Store skeleton frame data
-        self.frames['skeletons'][str(frame_number)] = frame_data
 
-    # Get frame data for rigid bodies
-    def get_rigid_bodies_frame_data(self, frame_number, frame_data) -> None:
-        # Store rigid body frame data
-        self.frames['rigid_bodies'][str(frame_number)] = frame_data
-
-    # Get model descriptions for skeletons
-    def get_skeleton_descriptions(self, desc_dict) -> None:
-        # Store skeleton descriptions
-        self.descriptions['skeletons'][desc_dict['name']] = desc_dict
-
-    # Get model descriptions for rigid bodies
-    def get_rigid_body_descriptions(self, desc_dict) -> None:
-        # Store rigid body descriptions
-        self.descriptions['rigid_bodies'][desc_dict['sz_name']] = desc_dict
 
 
 

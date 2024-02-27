@@ -33,6 +33,15 @@ dataStruct_MarkerSet = Struct(
     Probe()
 )
 
+dataStruct_MarkerSets = Struct(
+    'asset_type' /      Computed("MarkerSets"),
+    'child_count' /     Int32ul,
+    'packet_size' /     Int32ul,
+    'children' /        dataStruct_MarkerSet[this.child_count],
+    'relative_offset' / Tell,
+    Probe()
+)
+
 
 # Labeled marker structure
     # some properties need decoding
@@ -50,6 +59,15 @@ dataStruct_LabeledMarker = Struct(
     'size' /            Float32l,
     'param' /           Int16sl,
     'residual' /        Float32l,
+    'relative_offset' / Tell,
+    Probe()
+)
+
+dataStruct_LabeledMarkerSet = Struct(
+    'asset_type' /      Computed("LabeledMarkerSet"),
+    'packet_size' /     Int32ul,
+    'child_count' /     Int32ul,
+    'children' /        dataStruct_LabeledMarker[this.child_count],
     'relative_offset' / Tell,
     Probe()
 )
@@ -87,8 +105,15 @@ dataStruct_RigidBody = Struct(
     'rot_y' /               Float32l,
     'rot_z' /               Float32l,
     'error' /               Float32l,
-    'tracking_validity' /   Computed(Int16sl * isTrue),
-    'relative_offset' /     Tell,
+    'tracking_validity' /   Int16sl
+)
+
+dataStruct_RigidBodies = Struct(
+    'asset_type' /      Computed("RigidBodies"),
+    'child_count' /     Int32ul,
+    'packet_size' /     Int32ul,
+    'children' /        dataStruct_RigidBody[this.child_count],
+    'relative_offset' / Tell,
     Probe()
 )
 
@@ -97,6 +122,14 @@ dataStruct_Skeleton = Struct(
     'asset_ID' /        Int32ul,
     'child_count' /     Int32ul,
     'children' /        dataStruct_RigidBody[this.child_count],
+    Probe()
+)
+
+dataStruct_Skeletons = Struct(
+    'asset_type' /      Computed("Skeletons"),
+    'child_count' /     Int32ul,
+    'packet_size' /     Int32ul,
+    'children' /        dataStruct_Skeleton[this.child_count],
     'relative_offset' / Tell,
     Probe()
 )
@@ -128,14 +161,23 @@ dataStruct_AssetMarker = Struct(
     'residual' /        Float32l
 )
 
-dataStruct_Asset = Struct(
+dataStruct_Assets = Struct(
     "asset_type" /          Computed("Asset"),
     "asset_ID" /            Int32ul,
     "rigid_body_count" /    Int32ul,
-    "rigid_bodies" /        dataStruct_AssetRigidBody[this.rigid_body_count],
+    "rigid_body_children" / dataStruct_AssetRigidBody[this.rigid_body_count],
     "marker_count" /        Int32ul,
-    "markers" /             dataStruct_AssetMarker[this.marker_count],
+    "marker_children" /     dataStruct_AssetMarker[this.marker_count],
     "relative_offset" /     Tell,
+    Probe()
+)
+
+dataStruct_Assetss = Struct(
+    'asset_type' /      Computed("Assets"),
+    'child_count' /     Int32ul,
+    'packet_size' /     Int32ul,
+    'children' /        dataStruct_Assets[this.child_count],
+    'relative_offset' / Tell,
     Probe()
 )
 
@@ -160,16 +202,30 @@ dataStruct_ForcePlate = Struct(
     'asset_type' /      Computed("ForcePlate"),
     'asset_ID' /         Int32ul,
     'child_count' /     Int32ul,
-    'children' /        dataStruct_Channel[this.child_count],
+    'children' /        dataStruct_Channel[this.child_count]
+)
+
+dataStruct_ForcePlates = Struct(
+    'asset_type' /      Computed("ForcePlates"),
+    'child_count' /     Int32ul,
+    'packet_size' /     Int32ul,
+    'children' /        dataStruct_ForcePlate[this.child_count],
     'relative_offset' / Tell,
     Probe()
 )
 
 dataStruct_Device = Struct(
     'asset_type' /      Computed("Device"),
-    'asset_ID' /         Int32ul,
+    'asset_ID' /        Int32ul,
     'child_count' /     Int32ul,
-    'children' /        dataStruct_Channel[this.child_count],
+    'children' /        dataStruct_Channel[this.child_count]
+)
+
+dataStruct_Devices = Struct(
+    'asset_type' /      Computed("Devices"),
+    'child_count' /     Int32ul,
+    'packet_size' /     Int32ul,
+    'children' /        dataStruct_Device[this.child_count],
     'relative_offset' / Tell,
     Probe()
 )
